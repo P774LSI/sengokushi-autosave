@@ -1,11 +1,11 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0.α1 / 20210623"
+; @version "1.2.0.α2 / 20210623"
 ; @author "P-774LSI"
 ; @lisence "CC0"
 
 /*
-概要: 戦国史SE, 戦国史FEで「オートセーブ」・「クイックセーブ」・「ワンクリック内政」を行うユーザー操作補助スクリプトです。
-また拡張機能として「足軽数が指定数以上の人物は最大まで徴兵する」コマンドを提供します（要118行目の拡張機能有効化）。
+概要: 戦国史SE, 戦国史FEで「オートセーブ」・「クイックセーブ」を行うユーザー操作補助スクリプトです。
+また拡張機能として「ワンクリック内政」・「足軽数が指定数以上の人物は最大まで徴兵する」・「軍団資産の数値ワンクリック入力」コマンドを提供します。
 使用にはAutoHotkey（以下AHK） v1.1.31以上（ユニコード版）の導入が必要です（v2系は動作保証外）。
 スクリプト実行中は、マウスのセンターボタン・サイドボタン1・2、キーボードのF2～F3およびF7～F12、Scroll Lockがゲーム用のキー割り当てに変更されます。
 これらのホットキーは戦国史がアクティブな場合に限り、使用できます。非アクティブ化で自動的にオフになります。
@@ -32,8 +32,9 @@ http://ahkwiki.net/Hotkeys
 
 マウス
 センターボタン: クイックセーブ。
-サイドボタン1: 徴兵ウィンドウを開いた後に押すと、足軽数が指定数以上の人物は最大まで徴兵します（要: 拡張機能有効化）。動作中もう1度押すと中止します。
-サイドボタン2: ワンクリック内政。内政各サブウィンドウを開く前に押します。
+サイドボタン2: 【内政フェイズ】ワンクリック内政。内政各サブウィンドウを開く前に押します。
+              【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物は最大まで徴兵します。動作中もう1度押すと中止します。
+              【軍備フェイズ】軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
 
 キーボード
 F2: オートセーブの有効/無効切り替え。
@@ -138,19 +139,19 @@ targetNumberOfSoldiers := 4000
 draftRemainLimit := 3000
 
 
-; 「軍団資産の数値ワンクリック入力」
-; 「軍団資産の数値ワンクリック入力」コマンドを有効にする。
+; 「軍団資産の初期数値入力」
+; 「軍団資産の初期数値入力」コマンドを有効にする。
 isCustomManageCorpsFundsEnabled := true
 
-; 「軍団資産の数値ワンクリック入力」コマンド実行時の「軍団に資金を支給」左横の入力ボックスに入力する数値を指定します。
+; 「軍団資産の初期数値入力」コマンド実行時の「軍団に資金を支給」左横の入力ボックスに入力する数値を指定します。
 ; 数値はコマンドが実行されるたびに増加します。例: 30000 -> 60000 -> 90000 -> ...
 paymentAmount := 50000
 
-; 「軍団資産の数値ワンクリック入力」コマンド実行時の「軍団から資金を徴収」左横の入力ボックスに入力する数値を指定します。
+; 「軍団資産の初期数値入力」コマンド実行時の「軍団から資金を徴収」左横の入力ボックスに入力する数値を指定します。
 ; 数値はコマンドが実行されるたびに増加します。例: 30000 -> 60000 -> 90000 -> ...
 collectionAmount := 30000
 
-; 「軍団資産の数値ワンクリック入力」コマンド実行時の「軍団に鉄砲を支給」左横の入力ボックスに入力する数値を指定します。
+; 「軍団資産の初期数値入力」コマンド実行時の「軍団に鉄砲を支給」左横の入力ボックスに入力する数値を指定します。
 supplyMatchlockAmount := 0
 
 
@@ -605,7 +606,7 @@ customManageCorpsFunds() {
     currentPaymentAmount := corpsFundsTexts[8]
     currentCollectionAmount := corpsFundsTexts[9]
     currentSupplyMatchlockAmount := corpsFundsTexts[16]
-    clipSaved =
+    inputXPos := 352
 
     ;MsgBox, %currentPaymentAmount%
 
@@ -617,7 +618,7 @@ customManageCorpsFunds() {
     clipSaved := ClipboardAll
 
     if (paymentAmount > 0) {
-        MouseMove, 320, 26
+        MouseMove, %inputXPos%, 26
         Sleep, sleepDuration1
         Click
         Sleep, sleepDuration1
@@ -631,20 +632,20 @@ customManageCorpsFunds() {
     }
 
     if (collectionAmount > 0) {
-        MouseMove, 320, 60
+        MouseMove, %inputXPos%, 60
         Sleep, sleepDuration1
         Click
         Sleep, sleepDuration1
         Send {BS 10}
         Sleep, sleepDuration1
-        Clipboard = % currentPaymentAmount + collectionAmount
+        Clipboard = % currentCollectionAmount + collectionAmount
         Sleep, sleepDuration1
         Send ^{v}
         Sleep, % sleepDuration1
     }
     
     if (supplyMatchlockAmount > 0 && currentSupplyMatchlockAmount == 0) {
-        MouseMove, 320, 94
+        MouseMove, %inputXPos%, 94
         Sleep, sleepDuration1
         Click
         Sleep, sleepDuration1
