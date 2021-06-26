@@ -1,5 +1,5 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0.α3 / 20210627"
+; @version "1.2.0.α4 / 20210627"
 ; @author "P-774LSI"
 ; @lisence "CC0"
 
@@ -30,14 +30,16 @@ http://ahkwiki.net/Hotkeys
 ---------------------------------------------------------------------------------------------------------------------
 クイック・リファレンス
 
-マウス
+【マウス】
 センターボタン: クイックセーブ。
-サイドボタン2: 【内政フェイズ】ワンクリック内政。内政各サブウィンドウを開く前に押します。
-              【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵するします。動作中もう1度押すと中止します。
+サイドボタン1: 【軍備フェイズ】徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
+              【軍備フェイズ】城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
               【軍備フェイズ】軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
-サイドボタン1: 【軍備フェイズ】徴兵ウィンドウを開き、人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
+              【内政フェイズ】ワンクリック内政。内政フェイズで各サブウィンドウを開く前に押します。
+サイドボタン2: 【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
 
-キーボード
+
+【キーボード】
 F2: オートセーブの有効/無効切り替え。
 F3: 上書きセーブの有効/無効切り替え。
 F7: ワンクリック内政の一括有効/無効切り替え。
@@ -141,7 +143,7 @@ fundsLimit := 10000
 draftForGeneralSpinClicks := 85
 
 ; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
-draftForDefenderSpinClicks := 25
+draftForCastleSpinClicks := 25
 
 ; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を推測し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
 ; 例えば城兵数が700の城に対して500が一度に徴兵される設定だった場合、徴兵すると1,200ではなく、500の倍数である1,000になるように調整が行われます。
@@ -175,14 +177,15 @@ collectionAmount := 30000
 supplyMatchlockAmount := 0
 
 
-
+isSupplyMaxHyoroEnabled := true
+isReturnsCurSorSupplyHyoro := true
 
 
 ; =====【高度な設定】=====
 ;
 ; スクリプトが行うキー操作間のスリープ時間を指定します（ミリ秒）。数値が少ないほどコマンドの実行速度が上がりますが、環境によっては動作しなくなります。
 ; デフォルトでは50ms（0.05秒）とかなり高速で操作を行うように設定されています。動作不具合やスクリプトテスト時はまずこの値を増やして検証してください。
-sleepDuration1 := 550
+sleepDuration1 := 50
 
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
@@ -328,13 +331,13 @@ isMovedCursor() {
 }
 
 save() {
+    global sleepDuration2
     global prefix
     global spliter
     global appProcess
     global isSaveComplete
     global isPrefixAutoDetectEnabled
     global isOverwrite
-    global sleepDuration2
     str =
     clipSaved =
 
@@ -462,12 +465,12 @@ detectPhase() {
 }
 
 assistDomesticAffairs() {
+    global sleepDuration1
     global appProcess
     global isAssistDomesticAffairsEnabled
     global funds
     global oldFunds
     global fundsLimit
-    global sleepDuration1
     global isAssistDomesticAffairsRunning
     isPossibleProduce := false
     fundsIndex := 20
@@ -502,12 +505,12 @@ assistDomesticAffairs() {
 }
 
 executeDomesticAffairs(processType) {
+    global sleepDuration1
+    global sleepDuration2
     global isCommerceEnabled
     global isDevelopmentNewFieldsEnabled
     global isIndustriesEnabled
     global isMatchlocksProductionEnabled
-    global sleepDuration1
-    global sleepDuration2
     isPermission :=
 
     switch processType {
@@ -537,8 +540,8 @@ executeDomesticAffairs(processType) {
 }
 
 subWindowRoutine1() {
-    global mouseOffset1
     global sleepDuration1
+    global mouseOffset1
     global checkBoxColor
     global subWindow1checkBoxXPos
     global subWindow1checkBoxYPos
@@ -603,14 +606,14 @@ subWindowRoutine2() {  ; Only use the produce matchlocks.
 fixedAmountDraft() {
     global sleepDuration1
     global draftForGeneralSpinClicks
-    global draftForDefenderSpinClicks
+    global draftForCastleSpinClicks
     global isDefenderDraftMultipleEnabled
     global soldierUnit
     global defenderdraftAmount
     maxAllowed := 0
     actuallySpinClicks := 0
 
-    MouseGetPos, currentMouseXPos, currentMouseYPos  ; 
+    MouseGetPos, currentMouseXPos, currentMouseYPos 
 
     if (currentMouseYPos > 0 && currentMouseYPos < 330) {  ; Draft for general.
         MouseMove, 376, 299
@@ -634,18 +637,18 @@ fixedAmountDraft() {
                 MouseMove, 303, 513
                 BlockInput, MouseMove
                 Sleep, sleepDuration1
-                Click, %draftForDefenderSpinClicks%
+                Click, %draftForCastleSpinClicks%
                 BlockInput, MouseMoveOff
                 Sleep, sleepDuration1
                 currentDefenders := getWindowText(22)
-                soldierUnit := % (currentDefenders - oldDefenders) / draftForDefenderSpinClicks
-                defenderdraftAmount := % soldierUnit * draftForDefenderSpinClicks
+                soldierUnit := % (currentDefenders - oldDefenders) / draftForCastleSpinClicks
+                defenderdraftAmount := % soldierUnit * draftForCastleSpinClicks
             }
         } else {
             MouseMove, 303, 513
             BlockInput, MouseMove
             Sleep, sleepDuration1
-            Click, %draftForDefenderSpinClicks%
+            Click, %draftForCastleSpinClicks%
             BlockInput, MouseMoveOff
         }
 
@@ -653,12 +656,12 @@ fixedAmountDraft() {
 }
 
 customMaxDraft() {
+    global sleepDuration1
     global appProcess
     global targetNumberOfSoldiers
     global draftRemainLimit
     global isCustomMaxDraftEnabled
     global isCustomDraftRunning
-    global sleepDuration1
     isPossibleDraft := true
 
     draftTexts :=
@@ -721,10 +724,36 @@ customMaxDraft() {
     isCustomDraftRunning := false
 }
 
+supplyMaxHyoro() {
+    global sleepDuration1
+    global isSupplyMaxHyoroEnabled
+    global isReturnsCurSorSupplyHyoro
+    sliderBeginPos := 71
+    sliderEndPos := 171
+    sliderYPos := 313
+
+    if (!isSupplyMaxHyoroEnabled) {
+        return
+    }
+
+    if (isReturnsCurSorSupplyHyoro) {
+        MouseGetPos, currentMouseXPos, currentMouseYPos
+        MouseMove, %sliderBeginPos%, %sliderYPos%
+        Sleep, sleepDuration1
+        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+        Sleep, sleepDuration1
+        MouseMove, %currentMouseXPos%, %currentMouseYPos%
+    } else {
+        MouseMove, %sliderBeginPos%, %sliderYPos%
+        Sleep, sleepDuration1
+        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+    }
+}
+
 customManageCorpsFunds() {
+    global sleepDuration1
     global isCustomManageCorpsFundsEnabled
     global isCustomManageCorpsFundsRunning
-    global sleepDuration1
     global paymentAmount
     global collectionAmount
     global supplyMatchlockAmount
@@ -863,29 +892,17 @@ MButton:: ; Quick save.
     return
 
 XButton1::  ; Main action button.
-/*
-    if (!isAssistDomesticAffairsRunning) {
-        assistDomesticAffairs()
-    }
-    return
-    */
     if (!isLogical || !WinExist(appProcess) || !WinActive(appProcess)) {
         return
     }
-
-
-    ;WinGetText, strings, %appProcess%
-    ;windowTexts := StrSplit(strings, "`r`n")
 
     WinGetTitle, windowTitle, %appProcess%
 
     switch windowTitle {
         case "徴兵":  ; Execuete a command of the custom max draft. If the command is running, abort it.
-            if (isCustomDraftRunning) {
-                isCustomDraftRunning := false
-            } else {
-                customMaxDraft()
-            }
+            fixedAmountDraft()
+        case "城兵糧補充":
+            supplyMaxHyoro()
         case "軍団資産":
             if (!isCustomManageCorpsFundsRunning) {
                 customManageCorpsFunds()
@@ -898,19 +915,18 @@ XButton1::  ; Main action button.
 
             switch phaseType {
                 case 1:  ; Personnel phase.
-                    MsgBox, 人事フェイズ
+                    ;MsgBox, 人事フェイズ
                 case 2:  ; Armaments phase.
-                    MsgBox, 軍備フェイズ
+                    ;MsgBox, 軍備フェイズ
                 case 3:  ; Domestic affairs phase.
                     assistDomesticAffairs()
                 case 4:  ; Strategy phase.
-                    MsgBox, 移動フェイズ
+                    ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
-                    MsgBox, 出陣フェイズ
+                    ;MsgBox, 出陣フェイズ
 
             }
     }
-
     return
 
 XButton2::
@@ -922,7 +938,11 @@ XButton2::
 
     switch windowTitle {
         case "徴兵":  ; Execuete a command of the fixed amount draft.
-            fixedAmountDraft()
+            if (isCustomDraftRunning) {
+                isCustomDraftRunning := false
+            } else {
+                customMaxDraft()
+            }           
         case "軍団資産":
 
         case "戦国史SE", "戦国史FE":
@@ -933,15 +953,15 @@ XButton2::
 
             switch phaseType {
                 case 1:  ; Personnel phase.
-                    MsgBox, 人事フェイズ
+                    ;MsgBox, 人事フェイズ
                 case 2:  ; Armaments phase.
-                    MsgBox, 軍備フェイズ
+                    ;MsgBox, 軍備フェイズ
                 case 3:  ; Domestic affairs phase.
-                    ;assistDomesticAffairs()
+                    ;MsgBox, 内政フェイズ
                 case 4:  ; Strategy phase.
-                    MsgBox, 移動フェイズ
+                    ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
-                    MsgBox, 出陣フェイズ
+                    ;MsgBox, 出陣フェイズ
 
             }
     }
