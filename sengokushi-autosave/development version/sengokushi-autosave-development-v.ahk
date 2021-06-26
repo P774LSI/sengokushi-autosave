@@ -1,5 +1,5 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0.α2 / 20210623"
+; @version "1.2.0.α3 / 20210627"
 ; @author "P-774LSI"
 ; @lisence "CC0"
 
@@ -33,8 +33,9 @@ http://ahkwiki.net/Hotkeys
 マウス
 センターボタン: クイックセーブ。
 サイドボタン2: 【内政フェイズ】ワンクリック内政。内政各サブウィンドウを開く前に押します。
-              【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物は最大まで徴兵します。動作中もう1度押すと中止します。
+              【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵するします。動作中もう1度押すと中止します。
               【軍備フェイズ】軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
+サイドボタン1: 【軍備フェイズ】徴兵ウィンドウを開き、人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
 
 キーボード
 F2: オートセーブの有効/無効切り替え。
@@ -52,18 +53,9 @@ Scroll Lock: サスペンド（ホットキー無効化）の有効/無効の切
 
 ;-----------------------------------------------------------------------------------------------------------------------
 ; ユーザー設定項目
+; =====【基本機能設定】=====
 
-; 【基本機能設定】
-; オートセーブを有効化するかどうかのブール初期値を指定します。キーボードのF2で初期値から変更できます。
-isAutoSaveEnabled := true
-
-; オートセーブが発動するまでのマウス非操作時間（ミリ秒）。初期値300000（5分）。有効範囲：60000-4294967295
-fireSaveDuration := 300000
-
-; オートセーブ有効時、AHKを自動で一時停止（Pause）するまでのマウス非操作時間（ミリ秒）。初期値2時間。有効範囲：60000-4294967295
-; 一時停止はタイマー類にのみ影響します。ホットキーは無効化されません。
-firePauseDuration := fireSaveDuration * 24
-
+; [システム]
 ; スクリプトを先に起動した時に、戦国史も一緒に起動させるかどうかのブール値を指定します。
 ; この設定が`false`の場合、先に戦国史を起動しないとSE, FEの判定を行えないため、スクリプトが正しく動作しません。
 isLaunchAppEnabled := true
@@ -75,6 +67,22 @@ appPath := "C:\Program Files (x86)\SengokushiSE\戦国史SE.exe"
 ;saveFolderPathSE := "C:\Program Files (x86)\SengokushiSE\SaveData"  ; 恐らくWindows7未満
 saveFolderPathSE = %LOCALAPPDATA%\VirtualStore\Program Files (x86)\SengokushiSE\SaveData
 saveFolderPathFE = %LOCALAPPDATA%\VirtualStore\Program Files (x86)\SengokushiFE\SaveData
+
+; 戦国史が非アクティブになった際に自動でサスペンド（ホットキー無効化）をさせるかどうかのブール初期値を指定します。
+; 頻繁にアクティブウィンドウを切り替える場合に便利ですが、タイマーが常駐監視するためわずかですがリソース消費が増えます。
+isAutoSuspendEnabled := true
+
+
+; [オートセーブ・クイックセーブ]
+; オートセーブを有効化するかどうかのブール初期値を指定します。キーボードのF2で初期値から変更できます。
+isAutoSaveEnabled := true
+
+; オートセーブが発動するまでのマウス非操作時間（ミリ秒）。初期値300000（5分）。有効範囲：60000-4294967295
+fireSaveDuration := 300000
+
+; オートセーブ有効時、AHKを自動で一時停止（Pause）するまでのマウス非操作時間（ミリ秒）。初期値2時間。有効範囲：60000-4294967295
+; 一時停止はタイマー類にのみ影響します。ホットキーは無効化されません。
+firePauseDuration := fireSaveDuration * 24
 
 ; セーブファイル名の最初に付ける一意のプレフィクス（識別子）。
 prefix := "sengokushi"
@@ -90,15 +98,15 @@ isPrefixAutoDetectEnabled := true
 ; 上書きセーブするかどうかのブール値を指定します。`true`の場合、セーブファイル名は`prefix`のみが付与されます。切り替えのホットキーはF3。
 isOverwrite := false
 
-; 戦国史が非アクティブになった際に自動でサスペンド（ホットキー無効化）をさせるかどうかのブール初期値を指定します。
-; 頻繁にアクティブウィンドウを切り替える場合に便利ですが、タイマーが常駐監視するためわずかですがリソース消費が増えます。
-isAutoSuspendEnabled := true
 
 
-; 【拡張機能設定】
+
+
+; =====【拡張機能設定】=====
+
 ; 拡張機能の有効/無効を切り替えます。
 ; この設定を`true`にすると、スクリプトに対してゲーム内から追加の情報を読み取る許可を与え、拡張機能の使用を可能にします。
-; 具体的には「ワンクリック内政」・「足軽数が指定数以上の人物は最大まで徴兵する」・「軍団資産の数値ワンクリック入力」の有効化です。
+; 具体的には「ワンクリック内政」・「指定数の足軽・城兵を徴兵する」・「足軽数が指定数以上の人物はすべて最大まで徴兵する」・「軍団資産の初期数値入力」の有効化です。
 isLogical := true
 
 ; 現在内政フェイズかどうかを判断し、内政フェイズのカスタムユーザーコマンドを実行するための判断リストです。
@@ -107,39 +115,51 @@ isLogical := true
 pendingList1 := ["新田開墾", "楽市楽座", "鉱山開発", "鉄砲生産", "商業整備", "産業整備"]
 
 
-; 「ワンクリック内政」
+; [ワンクリック内政]
 ; ワンクリック内政を有効化するかどうかのブール初期値を指定します。キーボードのF7で初期値から変更できます。
 ; この値が`false`の場合、以降の内政個別設定内容に関係なく、ユーザー操作補助は無効化されます。
 isAssistDomesticAffairsEnabled := true
 
-; ワンクリック内政に商業開発を含めるかどうかのブール初期値を指定します。ホットキーはF8。
+; 「ワンクリック内政」に商業開発を含めるかどうかのブール初期値を指定します。ホットキーはF8。
 isCommerceEnabled := true
 
-; ワンクリック内政に新田開発を含めるかどうかのブール初期値を指定します。ホットキーはF9。
+; 「ワンクリック内政」に新田開発を含めるかどうかのブール初期値を指定します。ホットキーはF9。
 isDevelopmentNewFieldsEnabled := true
 
-; ワンクリック内政に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。ホットキーはF10。
+; 「ワンクリック内政」に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。ホットキーはF10。
 isIndustriesEnabled := true
 
-; ワンクリック内政に鉄砲生産を含めるかどうかのブール初期値を指定します。ホットキーはF11。
+; 「ワンクリック内政」に鉄砲生産を含めるかどうかのブール初期値を指定します。ホットキーはF11。
 isMatchlocksProductionEnabled := true
 
-; ワンクリック内政時に資金が以下の数値を下回る場合は新田開墾と鉄砲購入を行いません。
+; 「ワンクリック内政」時に資金が以下の数値を下回る場合は新田開墾と鉄砲購入を行いません。
 fundsLimit := 10000
 
 
-; 「足軽数が指定数以上の人物は最大まで徴兵する」
-; 「足軽数が指定数以上の人物は最大まで徴兵する」コマンドを有効にする。
+; [指定数の足軽・城兵を徴兵する]
+; 選択した人物に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際、以下の回数だけ足軽スピンをクリックします。例えば「兵最小単位」が10のシナリオで50と設定された場合、500人を徴兵します。
+draftForGeneralSpinClicks := 85
+
+; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
+draftForDefenderSpinClicks := 25
+
+; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を推測し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
+; 例えば城兵数が700の城に対して500が一度に徴兵される設定だった場合、徴兵すると1,200ではなく、500の倍数である1,000になるように調整が行われます。
+isDefenderDraftMultipleEnabled := true
+
+
+; [足軽数が指定数以上の人物はすべて最大まで徴兵する]
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドを有効にする。
 isCustomMaxDraftEnabled := true
 
-; 「足軽数が指定数以上の人物は最大まで徴兵する」コマンドは、この数値以上の足軽を抱える人物に対して実行されます。
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドは、この数値以上の足軽を抱える人物に対して実行されます。
 targetNumberOfSoldiers := 4000
 
-; 「足軽数が指定数以上の人物は最大まで徴兵する」コマンドが実行中に、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドが実行中に、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
 draftRemainLimit := 3000
 
 
-; 「軍団資産の初期数値入力」
+; [軍団資産の初期数値入力]
 ; 「軍団資産の初期数値入力」コマンドを有効にする。
 isCustomManageCorpsFundsEnabled := true
 
@@ -156,13 +176,18 @@ supplyMatchlockAmount := 0
 
 
 
-; 【高度な設定】
+
+
+; =====【高度な設定】=====
+;
 ; スクリプトが行うキー操作間のスリープ時間を指定します（ミリ秒）。数値が少ないほどコマンドの実行速度が上がりますが、環境によっては動作しなくなります。
 ; デフォルトでは50ms（0.05秒）とかなり高速で操作を行うように設定されています。動作不具合やスクリプトテスト時はまずこの値を増やして検証してください。
-sleepDuration1 := 50
+sleepDuration1 := 550
 
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
+
+
 
 
 
@@ -175,12 +200,12 @@ appProcess =
 appProcessSE = ahk_exe 戦国史SE.exe
 appProcessFE = ahk_exe 戦国史FE.exe
 
-; Only use Save function.
+; Only use save function.
 saveFolderPath =
 elapsedTime := 0
 checkDuration := 60000
 
-; Only use command assist function.
+; About extensions.
 mouseXPos := 0  ; Current mouse X pos.
 mouseYPos := 0
 mouseOffset1 := 180  ; Just about the center pos of a sub-window.
@@ -188,14 +213,16 @@ checkBoxColor := 0x808080  ; Gray. RGB, 128, 128, 128
 ;subWindowBGColor := 0xFFFFFF  ; RGB, 255, 255, 255  ; Not use current version.
 subWindow1checkBoxXPos := 23  ; Client coordinate. Not window cordinate !
 subWindow1checkBoxYPos := 94  ; Client coordinate. Not window cordinate !
-isAssistDomesticAffairsRunning := false
 
-; Extension settings
 funds := 0
 oldFunds := 0
 isDomesticAffairsPhase := false
 domesticAffairsWord =
+isAssistDomesticAffairsRunning := false
 isCustomDraftRunning := false
+isCustomManageCorpsFundsRunning := false
+soldierUnit := 0
+defenderdraftAmount := 0
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -385,6 +412,55 @@ getWindowText(index) {
     return RTrim(array[index], "`r")
 }
 
+detectPhase() {
+    global appProcess
+    global pendingList1
+    global funds
+    global domesticAffairsWord
+    
+    personnelWord = 捕虜処遇
+    armamentsWord = 徴兵
+    strategyWord = 陸路移動
+    departureWord = 陸路出陣
+    isMatch :=
+
+    WinGetText, strings, %appProcess%
+    commandTexts := StrSplit(strings, "`r`n")
+
+    ; Init process. Set keyword of domestic affairs.
+    if (!domesticAffairsWord) {
+        for i, cElement in commandTexts {
+            for j, pElement in pendingList1 {
+                if (cElement == pElement) { 
+                    domesticAffairsWord := cElement
+                    isMatch := true
+                    break
+                }
+            }
+
+            if (isMatch) {
+                break
+            }
+        }
+    }
+
+    for i, cElement in commandTexts {
+        if (cElement == domesticAffairsWord) {
+            funds := commandTexts[20]  ; Set a funds.
+            ;MsgBox, %funds%
+            return 3
+        } else if (cElement == armamentsWord) {
+            return 2
+        } else if (cElement == strategyWord) {
+            return 4
+        } else if (cElement == departureWord) {
+            return 5
+        } else if (cElement == personnelWord) {
+            return 1
+        }
+    }
+}
+
 assistDomesticAffairs() {
     global appProcess
     global isAssistDomesticAffairsEnabled
@@ -524,6 +600,58 @@ subWindowRoutine2() {  ; Only use the produce matchlocks.
     Send {Enter}
 }
 
+fixedAmountDraft() {
+    global sleepDuration1
+    global draftForGeneralSpinClicks
+    global draftForDefenderSpinClicks
+    global isDefenderDraftMultipleEnabled
+    global soldierUnit
+    global defenderdraftAmount
+    maxAllowed := 0
+    actuallySpinClicks := 0
+
+    MouseGetPos, currentMouseXPos, currentMouseYPos  ; 
+
+    if (currentMouseYPos > 0 && currentMouseYPos < 330) {  ; Draft for general.
+        MouseMove, 376, 299
+        BlockInput, MouseMove
+        Sleep, sleepDuration1
+        Click, %draftForGeneralSpinClicks%
+        BlockInput, MouseMoveOff
+    } else if (currentMouseYPos > 299 && currentMouseYPos < 543) {  ; Defender draft.
+        if (isDefenderDraftMultipleEnabled) {
+            if (soldierUnit) {
+                currentDefenders := getWindowText(22)
+                maxAllowed := (Floor(currentDefenders / defenderdraftAmount) + 1) * defenderdraftAmount
+                actuallySpinClicks := (maxAllowed - currentDefenders) / soldierUnit
+                MouseMove, 303, 513
+                BlockInput, MouseMove
+                Sleep, sleepDuration1
+                Click, %actuallySpinClicks%
+                BlockInput, MouseMoveOff
+            } else {
+                oldDefenders := getWindowText(22)
+                MouseMove, 303, 513
+                BlockInput, MouseMove
+                Sleep, sleepDuration1
+                Click, %draftForDefenderSpinClicks%
+                BlockInput, MouseMoveOff
+                Sleep, sleepDuration1
+                currentDefenders := getWindowText(22)
+                soldierUnit := % (currentDefenders - oldDefenders) / draftForDefenderSpinClicks
+                defenderdraftAmount := % soldierUnit * draftForDefenderSpinClicks
+            }
+        } else {
+            MouseMove, 303, 513
+            BlockInput, MouseMove
+            Sleep, sleepDuration1
+            Click, %draftForDefenderSpinClicks%
+            BlockInput, MouseMoveOff
+        }
+
+    }
+}
+
 customMaxDraft() {
     global appProcess
     global targetNumberOfSoldiers
@@ -623,7 +751,6 @@ customManageCorpsFunds() {
         Click
         Sleep, sleepDuration1
         Send {BS 10}  ; To remove all of the string in the input box.
-        ;Send {Right}  ; Move a caret from left to right side if 
         Sleep, sleepDuration1
         Clipboard = % currentPaymentAmount + paymentAmount
         Sleep, sleepDuration1
@@ -660,56 +787,6 @@ customManageCorpsFunds() {
     Clipboard = %clipSaved%  ; Restore to the clipboard text.
     clipSaved =  ; Release the memory.
     isCustomManageCorpsFundsRunning := false
-    ;MsgBox, %funds%
-}
-
-detectPhase() {
-    global appProcess
-    global pendingList1
-    global funds
-    global domesticAffairsWord
-    
-    personnelWord = 捕虜処遇
-    armamentsWord = 徴兵
-    strategyWord = 陸路移動
-    departureWord = 陸路出陣
-    isMatch :=
-
-    WinGetText, strings, %appProcess%
-    commandTexts := StrSplit(strings, "`r`n")
-
-    ; Init process. Set keyword of domestic affairs.
-    if (!domesticAffairsWord) {
-        for i, cElement in commandTexts {
-            for j, pElement in pendingList1 {
-                if (cElement == pElement) { 
-                    domesticAffairsWord := cElement
-                    isMatch := true
-                    break
-                }
-            }
-
-            if (isMatch) {
-                break
-            }
-        }
-    }
-
-    for i, cElement in commandTexts {
-        if (cElement == domesticAffairsWord) {
-            funds := commandTexts[20]  ; Set a funds.
-            ;MsgBox, %funds%
-            return 3
-        } else if (cElement == armamentsWord) {
-            return 2
-        } else if (cElement == strategyWord) {
-            return 4
-        } else if (cElement == departureWord) {
-            return 5
-        } else if (cElement == personnelWord) {
-            return 1
-        }
-    }
 }
 
 setTooltipText() {
@@ -779,15 +856,11 @@ ScrollLock:: ; Toggle the suspend key on and off.
     }
     return
 
-MButton:: ; Quick save and the suspend switch.
+MButton:: ; Quick save.
     if (WinActive(appProcess)) {
         save()
     }
     return
-
-
-isCustomManageCorpsFundsRunning := false
-
 
 XButton1::  ; Main action button.
 /*
@@ -840,8 +913,38 @@ XButton1::  ; Main action button.
 
     return
 
-
 XButton2::
+    if (!isLogical || !WinExist(appProcess) || !WinActive(appProcess)) {
+        return
+    }
+
+    WinGetTitle, windowTitle, %appProcess%
+
+    switch windowTitle {
+        case "徴兵":  ; Execuete a command of the fixed amount draft.
+            fixedAmountDraft()
+        case "軍団資産":
+
+        case "戦国史SE", "戦国史FE":
+            ;MsgBox, フェイズ判定へ
+            phaseType := detectPhase()
+
+            ;MsgBox, %phaseType%
+
+            switch phaseType {
+                case 1:  ; Personnel phase.
+                    MsgBox, 人事フェイズ
+                case 2:  ; Armaments phase.
+                    MsgBox, 軍備フェイズ
+                case 3:  ; Domestic affairs phase.
+                    ;assistDomesticAffairs()
+                case 4:  ; Strategy phase.
+                    MsgBox, 移動フェイズ
+                case 5:  ; Departure phase.
+                    MsgBox, 出陣フェイズ
+
+            }
+    }
     return
 
 ; The following code is for the development and test.
@@ -862,6 +965,9 @@ Delete::
     ControlGetText, OutputVar, Button1, %appProcess%
     MsgBox, %OutputVar%
     return
+
+Break::
+    Click, 100
 
 isMainWindow() {
     WinGetTitle, windowTitle, %appProcess%
