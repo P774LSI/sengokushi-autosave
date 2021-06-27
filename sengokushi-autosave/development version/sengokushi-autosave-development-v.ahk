@@ -32,11 +32,12 @@ http://ahkwiki.net/Hotkeys
 
 【マウス】
 センターボタン: クイックセーブ。
-サイドボタン1: 【軍備フェイズ】徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
-              【軍備フェイズ】城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
-              【軍備フェイズ】軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
-              【内政フェイズ】ワンクリック内政。内政フェイズで各サブウィンドウを開く前に押します。
-サイドボタン2: 【軍備フェイズ】徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
+サイドボタン1:  [軍備フェイズ] 徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
+               
+               [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
+               [内政フェイズ] ワンクリック内政。内政フェイズで各サブウィンドウを開く前に押します。
+サイドボタン2:  [軍備フェイズ] 徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
+               [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
 
 
 【キーボード】
@@ -106,9 +107,9 @@ isOverwrite := false
 
 ; =====【拡張機能設定】=====
 
-; 拡張機能の有効/無効を切り替えます。
+; 拡張機能の有効/無効をブール値で切り替えます。
 ; この設定を`true`にすると、スクリプトに対してゲーム内から追加の情報を読み取る許可を与え、拡張機能の使用を可能にします。
-; 具体的には「ワンクリック内政」・「指定数の足軽・城兵を徴兵する」・「足軽数が指定数以上の人物はすべて最大まで徴兵する」・「軍団資産の初期数値入力」の有効化です。
+; 具体的には「ワンクリック内政」・「指定数の足軽・城兵を徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・「兵糧を最大まで補充」・「軍団資産の初期数値入力」の有効化です。
 isLogical := true
 
 ; 現在内政フェイズかどうかを判断し、内政フェイズのカスタムユーザーコマンドを実行するための判断リストです。
@@ -122,47 +123,69 @@ pendingList1 := ["新田開墾", "楽市楽座", "鉱山開発", "鉄砲生産",
 ; この値が`false`の場合、以降の内政個別設定内容に関係なく、ユーザー操作補助は無効化されます。
 isAssistDomesticAffairsEnabled := true
 
-; 「ワンクリック内政」に商業開発を含めるかどうかのブール初期値を指定します。ホットキーはF8。
+; 「ワンクリック内政」に商業開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF8。
 isCommerceEnabled := true
 
-; 「ワンクリック内政」に新田開発を含めるかどうかのブール初期値を指定します。ホットキーはF9。
+; 「ワンクリック内政」に新田開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF9。
 isDevelopmentNewFieldsEnabled := true
 
-; 「ワンクリック内政」に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。ホットキーはF10。
+; 「ワンクリック内政」に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF10。
 isIndustriesEnabled := true
 
-; 「ワンクリック内政」に鉄砲生産を含めるかどうかのブール初期値を指定します。ホットキーはF11。
+; 「ワンクリック内政」に鉄砲生産を含めるかどうかのブール初期値を指定します。切り替えホットキーはF11。
 isMatchlocksProductionEnabled := true
 
 ; 「ワンクリック内政」時に資金が以下の数値を下回る場合は新田開墾と鉄砲購入を行いません。
 fundsLimit := 10000
 
 
-; [指定数の足軽・城兵を徴兵する]
-; 選択した人物に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際、以下の回数だけ足軽スピンをクリックします。例えば「兵最小単位」が10のシナリオで50と設定された場合、500人を徴兵します。
+; [指定数の足軽・城兵を徴兵]
+; 「指定数の足軽・城兵を徴兵」コマンドを有効化するかどうかのブール値を指定します。
+isFixedAmountDraftEnabled := true
+
+; 選択した人物に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際、以下の回数だけ足軽スピンをクリックします。例えば「兵最小単位」が10のシナリオで50と設定された場合、500人を徴兵します。
 draftForGeneralSpinClicks := 85
 
-; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
+; 選択した城に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
 draftForCastleSpinClicks := 25
 
-; 選択した城に対して「指定数の足軽・城兵を徴兵する」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を推測し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
-; 例えば城兵数が700の城に対して500が一度に徴兵される設定だった場合、徴兵すると1,200ではなく、500の倍数である1,000になるように調整が行われます。
-isDefenderDraftMultipleEnabled := true
+; 選択した城に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を計算し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
+; 例えば城兵数が720の城に対して500が一度に徴兵される設定だった場合、徴兵すると1,220ではなく、500の倍数である1,000になるように調整が行われます。
+isDraftDefenderMultipleEnabled := true
 
 
-; [足軽数が指定数以上の人物はすべて最大まで徴兵する]
-; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドを有効にする。
+; [足軽数が指定数以上の人物はすべて最大まで徴兵]
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドを有効化するかどうかのブール値を指定します。
 isCustomMaxDraftEnabled := true
 
-; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドは、この数値以上の足軽を抱える人物に対して実行されます。
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドは、この数値以上の足軽を抱える人物に対して実行されます。
 targetNumberOfSoldiers := 4000
 
-; 「足軽数が指定数以上の人物はすべて最大まで徴兵する」コマンドが実行中に、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドが実行中に、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
 draftRemainLimit := 3000
 
 
+; [兵糧を最大まで補充]
+; 「兵糧を最大まで補充」コマンドを有効化するかどうかのブール値を指定します。
+isMaxSupplyHyoroEnabled := true
+
+; 「兵糧を最大まで補充」・[指定数の兵糧を補充]のどちらかのコマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
+isReturnsCurSorSupplyHyoro := true
+
+
+
+; [指定数の兵糧を補充]
+; 「指定数の兵糧を補充」コマンドを有効化するかどうかのブール値を指定します。
+isFixedAmountSupplyHyoroEnabled := true
+
+; 「指定数の兵糧を補充」コマンド
+amountOfHyoro := 2500
+
+
+
+
 ; [軍団資産の初期数値入力]
-; 「軍団資産の初期数値入力」コマンドを有効にする。
+; 「軍団資産の初期数値入力」コマンドを有効化するかどうかのブール値を指定します。
 isCustomManageCorpsFundsEnabled := true
 
 ; 「軍団資産の初期数値入力」コマンド実行時の「軍団に資金を支給」左横の入力ボックスに入力する数値を指定します。
@@ -177,8 +200,7 @@ collectionAmount := 30000
 supplyMatchlockAmount := 0
 
 
-isSupplyMaxHyoroEnabled := true
-isReturnsCurSorSupplyHyoro := true
+
 
 
 ; =====【高度な設定】=====
@@ -225,7 +247,7 @@ isAssistDomesticAffairsRunning := false
 isCustomDraftRunning := false
 isCustomManageCorpsFundsRunning := false
 soldierUnit := 0
-defenderdraftAmount := 0
+draftDefenderAmount := 0
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -605,13 +627,18 @@ subWindowRoutine2() {  ; Only use the produce matchlocks.
 
 fixedAmountDraft() {
     global sleepDuration1
+    global isFixedAmountDraftEnabled
     global draftForGeneralSpinClicks
     global draftForCastleSpinClicks
-    global isDefenderDraftMultipleEnabled
+    global isDraftDefenderMultipleEnabled
     global soldierUnit
-    global defenderdraftAmount
+    global draftDefenderAmount
     maxAllowed := 0
     actuallySpinClicks := 0
+
+    if (!isFixedAmountDraftEnabled) {
+        return
+    }
 
     MouseGetPos, currentMouseXPos, currentMouseYPos 
 
@@ -622,10 +649,10 @@ fixedAmountDraft() {
         Click, %draftForGeneralSpinClicks%
         BlockInput, MouseMoveOff
     } else if (currentMouseYPos > 299 && currentMouseYPos < 543) {  ; Defender draft.
-        if (isDefenderDraftMultipleEnabled) {
+        if (isDraftDefenderMultipleEnabled) {
             if (soldierUnit) {
                 currentDefenders := getWindowText(22)
-                maxAllowed := (Floor(currentDefenders / defenderdraftAmount) + 1) * defenderdraftAmount
+                maxAllowed := (Floor(currentDefenders / draftDefenderAmount) + 1) * draftDefenderAmount
                 actuallySpinClicks := (maxAllowed - currentDefenders) / soldierUnit
                 MouseMove, 303, 513
                 BlockInput, MouseMove
@@ -642,7 +669,7 @@ fixedAmountDraft() {
                 Sleep, sleepDuration1
                 currentDefenders := getWindowText(22)
                 soldierUnit := % (currentDefenders - oldDefenders) / draftForCastleSpinClicks
-                defenderdraftAmount := % soldierUnit * draftForCastleSpinClicks
+                draftDefenderAmount := % soldierUnit * draftForCastleSpinClicks
             }
         } else {
             MouseMove, 303, 513
@@ -657,11 +684,11 @@ fixedAmountDraft() {
 
 customMaxDraft() {
     global sleepDuration1
+    global isCustomMaxDraftEnabled
+    global isCustomDraftRunning
     global appProcess
     global targetNumberOfSoldiers
     global draftRemainLimit
-    global isCustomMaxDraftEnabled
-    global isCustomDraftRunning
     isPossibleDraft := true
 
     draftTexts :=
@@ -724,15 +751,47 @@ customMaxDraft() {
     isCustomDraftRunning := false
 }
 
-supplyMaxHyoro() {
+fixedAmountSupplyHyoro() {
     global sleepDuration1
-    global isSupplyMaxHyoroEnabled
+    global isFixedAmountSupplyHyoroEnabled
     global isReturnsCurSorSupplyHyoro
     sliderBeginPos := 71
     sliderEndPos := 171
     sliderYPos := 313
 
-    if (!isSupplyMaxHyoroEnabled) {
+    if (!isFixedAmountSupplyHyoroEnabled) {
+        return
+    }
+    
+    if (isReturnsCurSorSupplyHyoro) {
+        MouseGetPos, currentMouseXPos, currentMouseYPos
+        MouseMove, %sliderBeginPos%, %sliderYPos%
+        Sleep, sleepDuration1
+
+
+        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+
+
+
+
+        Sleep, sleepDuration1
+        MouseMove, %currentMouseXPos%, %currentMouseYPos%
+    } else {
+        MouseMove, %sliderBeginPos%, %sliderYPos%
+        Sleep, sleepDuration1
+        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+    }
+}
+
+maxSupplyHyoro() {
+    global sleepDuration1
+    global isMaxSupplyHyoroEnabled
+    global isReturnsCurSorSupplyHyoro
+    sliderBeginPos := 71
+    sliderEndPos := 171
+    sliderYPos := 313
+
+    if (!isMaxSupplyHyoroEnabled) {
         return
     }
 
@@ -740,11 +799,15 @@ supplyMaxHyoro() {
         MouseGetPos, currentMouseXPos, currentMouseYPos
         MouseMove, %sliderBeginPos%, %sliderYPos%
         Sleep, sleepDuration1
+        click  ; To returns a thumb of slider to the left side.
+        Sleep, sleepDuration1
         MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
         Sleep, sleepDuration1
         MouseMove, %currentMouseXPos%, %currentMouseYPos%
     } else {
         MouseMove, %sliderBeginPos%, %sliderYPos%
+        Sleep, sleepDuration1
+        click
         Sleep, sleepDuration1
         MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
     }
@@ -758,19 +821,16 @@ customManageCorpsFunds() {
     global collectionAmount
     global supplyMatchlockAmount
 
+    if (!isCustomManageCorpsFundsEnabled) {
+        return
+    }
+
     WinGetText, strings, %appProcess% 
     corpsFundsTexts := StrSplit(strings, "`r`n")
     currentPaymentAmount := corpsFundsTexts[8]
     currentCollectionAmount := corpsFundsTexts[9]
     currentSupplyMatchlockAmount := corpsFundsTexts[16]
     inputXPos := 352
-
-    ;MsgBox, %currentPaymentAmount%
-
-    if (!isCustomManageCorpsFundsEnabled) {
-        return
-    }
-
     isCustomManageCorpsFundsRunning := true
     clipSaved := ClipboardAll
 
@@ -899,10 +959,10 @@ XButton1::  ; Main action button.
     WinGetTitle, windowTitle, %appProcess%
 
     switch windowTitle {
-        case "徴兵":  ; Execuete a command of the custom max draft. If the command is running, abort it.
+        case "徴兵":  ; Execuete a command of the fixed amount draft.
             fixedAmountDraft()
         case "城兵糧補充":
-            supplyMaxHyoro()
+            fixedAmountSupplyHyoro()
         case "軍団資産":
             if (!isCustomManageCorpsFundsRunning) {
                 customManageCorpsFunds()
@@ -937,12 +997,14 @@ XButton2::
     WinGetTitle, windowTitle, %appProcess%
 
     switch windowTitle {
-        case "徴兵":  ; Execuete a command of the fixed amount draft.
+        case "徴兵":  ; Execuete a command of the custom max draft. If the command is running, abort it.
             if (isCustomDraftRunning) {
                 isCustomDraftRunning := false
             } else {
                 customMaxDraft()
-            }           
+            }       
+        case "城兵糧補充":
+            maxSupplyHyoro()
         case "軍団資産":
 
         case "戦国史SE", "戦国史FE":
