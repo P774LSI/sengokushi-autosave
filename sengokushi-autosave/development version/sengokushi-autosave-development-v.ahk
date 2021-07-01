@@ -1,11 +1,11 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0.α4 / 20210627"
+; @version "1.2.0.α6 / 20210628"
 ; @author "P-774LSI"
 ; @lisence "CC0"
 
 /*
 概要: 戦国史SE, 戦国史FEで「オートセーブ」・「クイックセーブ」を行うユーザー操作補助スクリプトです。
-また拡張機能として「ワンクリック内政」・「足軽数が指定数以上の人物は最大まで徴兵する」・「軍団資産の数値ワンクリック入力」コマンドを提供します。
+また拡張機能として「内政アシスト」・「足軽数が指定数以上の人物は最大まで徴兵する」・「軍団資産の数値ワンクリック入力」コマンドを提供します。
 使用にはAutoHotkey（以下AHK） v1.1.31以上（ユニコード版）の導入が必要です（v2系は動作保証外）。
 スクリプト実行中は、マウスのセンターボタン・サイドボタン1・2、キーボードのF2～F3およびF7～F12、Scroll Lockがゲーム用のキー割り当てに変更されます。
 これらのホットキーは戦国史がアクティブな場合に限り、使用できます。非アクティブ化で自動的にオフになります。
@@ -18,7 +18,7 @@ Scroll Lock押下、もしくはタスクトレイのアイコンからもサス
 例えばデフォルトでは、「sengokushi 20210613-201706」のようになります。プレフィクス・スプリッタは変更可能ですが、
 上書き保存時以外は日付時刻は強制付与されます。
 
-・ワンクリック内政は、商業開発・新田開発・産業開発・鉄砲生産の4つを実装しています。不要なものはホットキーでoffにできます。
+・内政アシストは、商業開発・新田開発・産業開発・鉄砲生産の4つを実装しています。不要なものはホットキーでoffにできます。
 
 ・テストは主に戦国史SE・Windows10下で行っています。環境によっては動作に問題が出る可能性があります。
 動作が不正確な場合は141行目の【高度な設定】から`sleepDuration1`の値を増やすことで改善されるかもしれません。
@@ -33,9 +33,9 @@ http://ahkwiki.net/Hotkeys
 【マウス】
 センターボタン: クイックセーブ。
 サイドボタン1:  [軍備フェイズ] 徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
-               
+               [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、事前に定められた数量の兵糧を補充します。
                [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
-               [内政フェイズ] ワンクリック内政。内政フェイズで各サブウィンドウを開く前に押します。
+               [内政フェイズ] 内政アシスト。内政フェイズで各サブウィンドウを開く前に押します。
 サイドボタン2:  [軍備フェイズ] 徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
                [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
 
@@ -43,7 +43,7 @@ http://ahkwiki.net/Hotkeys
 【キーボード】
 F2: オートセーブの有効/無効切り替え。
 F3: 上書きセーブの有効/無効切り替え。
-F7: ワンクリック内政の一括有効/無効切り替え。
+F7: 内政アシストの一括有効/無効切り替え。
 F8: 商業開発の有効/無効切り替え。
 F9: 新田開発の有効/無効切り替え。
 F10: 産業開発の有効/無効切り替え。
@@ -56,27 +56,30 @@ Scroll Lock: サスペンド（ホットキー無効化）の有効/無効の切
 
 ;-----------------------------------------------------------------------------------------------------------------------
 ; ユーザー設定項目
-; =====【基本機能設定】=====
 
-; [システム]
+; ------------------------
+; =====【基本機能設定】=====
+; ------------------------
+; 【システム】
 ; スクリプトを先に起動した時に、戦国史も一緒に起動させるかどうかのブール値を指定します。
-; この設定が`false`の場合、先に戦国史を起動しないとSE, FEの判定を行えないため、スクリプトが正しく動作しません。
+; 通常は戦国史起動後にスクリプトを起動する必要がありますが、この設定が`true`の場合に限り先にスクリプトを起動できます。
 isLaunchAppEnabled := true
 
 ; 戦国史の実行ファイルのフルパス。前記の戦国史の`isLaunchAppEnabled`（自動起動）が`true`の場合、ここにパスを指定します。
 appPath := "C:\Program Files (x86)\SengokushiSE\戦国史SE.exe"
 
 ; 戦国史のセーブフォルダのフルパス。キーボードのF12で開きます。上SE、下FE。
+EnvGet, envPath, LOCALAPPDATA  ; 環境変数を使用する場合は最後の引数にその名前を記載。
+saveFolderPathSE = %envPath%\VirtualStore\Program Files (x86)\SengokushiSE\SaveData
+saveFolderPathFE = %envPath%\VirtualStore\Program Files (x86)\SengokushiFE\SaveData
 ;saveFolderPathSE := "C:\Program Files (x86)\SengokushiSE\SaveData"  ; 恐らくWindows7未満
-saveFolderPathSE = %LOCALAPPDATA%\VirtualStore\Program Files (x86)\SengokushiSE\SaveData
-saveFolderPathFE = %LOCALAPPDATA%\VirtualStore\Program Files (x86)\SengokushiFE\SaveData
 
 ; 戦国史が非アクティブになった際に自動でサスペンド（ホットキー無効化）をさせるかどうかのブール初期値を指定します。
 ; 頻繁にアクティブウィンドウを切り替える場合に便利ですが、タイマーが常駐監視するためわずかですがリソース消費が増えます。
 isAutoSuspendEnabled := true
 
 
-; [オートセーブ・クイックセーブ]
+; 【オートセーブ・クイックセーブ】
 ; オートセーブを有効化するかどうかのブール初期値を指定します。キーボードのF2で初期値から変更できます。
 isAutoSaveEnabled := true
 
@@ -105,41 +108,42 @@ isOverwrite := false
 
 
 
+; ------------------------
 ; =====【拡張機能設定】=====
-
+;-------------------------
 ; 拡張機能の有効/無効をブール値で切り替えます。
 ; この設定を`true`にすると、スクリプトに対してゲーム内から追加の情報を読み取る許可を与え、拡張機能の使用を可能にします。
-; 具体的には「ワンクリック内政」・「指定数の足軽・城兵を徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・「兵糧を最大まで補充」・「軍団資産の初期数値入力」の有効化です。
+; 具体的には「内政アシスト」・「指定数の足軽・城兵を徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・【指定数の兵糧を補充】・「兵糧を最大まで補充」・「軍団資産の初期数値入力」を使用可能にします。
 isLogical := true
 
 ; 現在内政フェイズかどうかを判断し、内政フェイズのカスタムユーザーコマンドを実行するための判断リストです。
-; ユーザー作製シナリオの場合、内政フェイズのすべての単語が置換されている可能性があるため、リストの確認が必要です。サンプルシナリオでは不要です。
+; ユーザー作製シナリオでは、内政フェイズのすべての単語が置換されている可能性があるため、リストの確認が必要です。サンプルシナリオでは不要です。
 ; 以下のリスト内の単語が1つでも内政コマンドに含まれているように、必要に応じてリストに追記を行います。
 pendingList1 := ["新田開墾", "楽市楽座", "鉱山開発", "鉄砲生産", "商業整備", "産業整備"]
 
 
-; [ワンクリック内政]
-; ワンクリック内政を有効化するかどうかのブール初期値を指定します。キーボードのF7で初期値から変更できます。
-; この値が`false`の場合、以降の内政個別設定内容に関係なく、ユーザー操作補助は無効化されます。
+; 【内政アシスト】
+; 「内政アシスト」を有効化するかどうかのブール初期値を指定します。キーボードのF7で初期値から変更できます。
+; この値が`false`の場合、以降の内政個別設定内容に関係なく、ユーザー操作アシストは無効化されます。
 isAssistDomesticAffairsEnabled := true
 
-; 「ワンクリック内政」に商業開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF8。
+; 「内政アシスト」に商業開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF8。
 isCommerceEnabled := true
 
-; 「ワンクリック内政」に新田開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF9。
+; 「内政アシスト」に新田開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF9。
 isDevelopmentNewFieldsEnabled := true
 
-; 「ワンクリック内政」に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF10。
+; 「内政アシスト」に産業（鉱山）開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF10。
 isIndustriesEnabled := true
 
-; 「ワンクリック内政」に鉄砲生産を含めるかどうかのブール初期値を指定します。切り替えホットキーはF11。
+; 「内政アシスト」に鉄砲生産を含めるかどうかのブール初期値を指定します。切り替えホットキーはF11。
 isMatchlocksProductionEnabled := true
 
-; 「ワンクリック内政」時に資金が以下の数値を下回る場合は新田開墾と鉄砲購入を行いません。
+; 「内政アシスト」時に資金が以下の数値を下回る場合は新田開墾と鉄砲購入を行いません。
 fundsLimit := 10000
 
 
-; [指定数の足軽・城兵を徴兵]
+; 【指定数の足軽・城兵を徴兵】
 ; 「指定数の足軽・城兵を徴兵」コマンドを有効化するかどうかのブール値を指定します。
 isFixedAmountDraftEnabled := true
 
@@ -154,37 +158,42 @@ draftForCastleSpinClicks := 25
 isDraftDefenderMultipleEnabled := true
 
 
-; [足軽数が指定数以上の人物はすべて最大まで徴兵]
+; 【足軽数が指定数以上の人物はすべて最大まで徴兵】
 ; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドを有効化するかどうかのブール値を指定します。
 isCustomMaxDraftEnabled := true
 
 ; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドは、この数値以上の足軽を抱える人物に対して実行されます。
 targetNumberOfSoldiers := 4000
 
-; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドが実行中に、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
+; 「足軽数が指定数以上の人物はすべて最大まで徴兵」コマンドを実行中、徴兵可能な足軽が以下の数値を下回った場合はコマンドを中止します。
 draftRemainLimit := 3000
 
 
-; [兵糧を最大まで補充]
-; 「兵糧を最大まで補充」コマンドを有効化するかどうかのブール値を指定します。
-isMaxSupplyHyoroEnabled := true
-
-; 「兵糧を最大まで補充」・[指定数の兵糧を補充]のどちらかのコマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
-isReturnsCurSorSupplyHyoro := true
-
-
-
-; [指定数の兵糧を補充]
+; 【指定数の兵糧を補充】
 ; 「指定数の兵糧を補充」コマンドを有効化するかどうかのブール値を指定します。
 isFixedAmountSupplyHyoroEnabled := true
 
-; 「指定数の兵糧を補充」コマンド
-amountOfHyoro := 2500
+; 「指定数の兵糧を補充」コマンド実行時に補充される1回あたりの兵糧の数量を指定します。
+; これはスライダーのみによる補充で、微調整は行いません。ほとんどのケースで指定数よりも幾らか誤差が出ます。誤差を出したくない、または末尾の数字を0で揃えたい場合は次の倍数指定を有効化してください。
+amountOfSupplyHyoro := 2500
+
+; 「指定数の兵糧を補充」コマンドを実行した際に、補充後の兵糧が指定数の倍数になるように自動で調整します。
+; 例えば兵糧が5,330の城に対して2,500が一度に補充される設定だった場合、補充すると7,830ではなく、2,500の倍数である7,500になるように調整が行われます。
+isSupplyHyoroMultipleEnabled := false
+
+; 「指定数の兵糧を補充」コマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
+isReturnsCursorFixedAmountSupplyHyoro := true
 
 
+; 【兵糧を最大まで補充】
+; 「兵糧を最大まで補充」コマンドを有効化するかどうかのブール値を指定します。
+isMaxSupplyHyoroEnabled := true
+
+; 「兵糧を最大まで補充」コマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
+isReturnsCursorMaxSupplyHyoro := true
 
 
-; [軍団資産の初期数値入力]
+; 【軍団資産の初期数値入力】
 ; 「軍団資産の初期数値入力」コマンドを有効化するかどうかのブール値を指定します。
 isCustomManageCorpsFundsEnabled := true
 
@@ -203,10 +212,13 @@ supplyMatchlockAmount := 0
 
 
 
+; ------------------------
 ; =====【高度な設定】=====
-;
+; ------------------------
+; 【システム】
 ; スクリプトが行うキー操作間のスリープ時間を指定します（ミリ秒）。数値が少ないほどコマンドの実行速度が上がりますが、環境によっては動作しなくなります。
-; デフォルトでは50ms（0.05秒）とかなり高速で操作を行うように設定されています。動作不具合やスクリプトテスト時はまずこの値を増やして検証してください。
+; デフォルトでは50ms（0.05秒）とかなり高速で操作を行うように設定されています。なお、実際のスリープ時間はこれにキーそのものが持つわずかなスリープ時間も加わります。
+; 動作不具合やスクリプトテスト時はまずこの値を増やして検証してください。
 sleepDuration1 := 50
 
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
@@ -235,7 +247,6 @@ mouseXPos := 0  ; Current mouse X pos.
 mouseYPos := 0
 mouseOffset1 := 180  ; Just about the center pos of a sub-window.
 checkBoxColor := 0x808080  ; Gray. RGB, 128, 128, 128
-;subWindowBGColor := 0xFFFFFF  ; RGB, 255, 255, 255  ; Not use current version.
 subWindow1checkBoxXPos := 23  ; Client coordinate. Not window cordinate !
 subWindow1checkBoxYPos := 94  ; Client coordinate. Not window cordinate !
 
@@ -243,19 +254,25 @@ funds := 0
 oldFunds := 0
 isDomesticAffairsPhase := false
 domesticAffairsWord =
-isAssistDomesticAffairsRunning := false
+isSupplyHyoroRunning := false
 isCustomDraftRunning := false
 isCustomManageCorpsFundsRunning := false
+isAssistDomesticAffairsRunning := false
 soldierUnit := 0
 draftDefenderAmount := 0
+
+; Use only the command of hyoro supply.
+isSupplyHyoroRunning := false
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
 
+#NoEnv
 #Persistent  ; Keeps a script.
 #MaxThreadsPerHotkey 2  ; To define an abort key if same hot key pressed twice in a row.
 CoordMode, Pixel , Client  ; For unifying the origin of color coordinates of an app's window that differ between each operating system.
 CoordMode, Mouse , Client
+;SendMode Input
 
 ; Set a process name and define the variable.
 setProcess()
@@ -752,65 +769,190 @@ customMaxDraft() {
 }
 
 fixedAmountSupplyHyoro() {
+    global appProcess
     global sleepDuration1
     global isFixedAmountSupplyHyoroEnabled
-    global isReturnsCurSorSupplyHyoro
-    sliderBeginPos := 71
-    sliderEndPos := 171
+    global isReturnsCursorFixedAmountSupplyHyoro
+    global amountOfSupplyHyoro
+    global isSupplyHyoroMultipleEnabled
+    global isSupplyHyoroRunning
+    currentAmount :=  ; Index is 8
+    increaseAmount :=  ; Index is 3
+    sliderBeginXPos := 73
+    sliderEndXPos := 169
     sliderYPos := 313
+    sliderStopXPos := 73
+    sliderCurrentXPos :=
+    plusSpinYPos := 276
+    minusSpinYPos := 291
+    10spinXPos := 177
+    1spinXPos := 198
 
     if (!isFixedAmountSupplyHyoroEnabled) {
         return
     }
     
-    if (isReturnsCurSorSupplyHyoro) {
+    isSupplyHyoroRunning := true
+
+    if (isReturnsCursorFixedAmountSupplyHyoro) {    
         MouseGetPos, currentMouseXPos, currentMouseYPos
-        MouseMove, %sliderBeginPos%, %sliderYPos%
-        Sleep, sleepDuration1
-
-
-        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
-
-
-
-
-        Sleep, sleepDuration1
-        MouseMove, %currentMouseXPos%, %currentMouseYPos%
-    } else {
-        MouseMove, %sliderBeginPos%, %sliderYPos%
-        Sleep, sleepDuration1
-        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
     }
+    
+    WinGetText, strings, %appProcess% 
+    supplyHyoroTexts := StrSplit(strings, "`r`n")
+    increaseAmount := supplyHyoroTexts[3]
+    currentAmount := supplyHyoroTexts[8]
+    maxAmount := RegExReplace(supplyHyoroTexts[15], "[^0-9]+", "")  ; Regex for only numbers from a windw text with `Max nnnnn`.
+    fullRemain := maxAmount - currentAmount + increaseAmount
+    remain := maxAmount - currentAmount  ; How many more possible to supply are hyoro for a castle.
+
+    if (remain == 0) {  ; Hyoro are full.
+        isSupplyHyoroRunning := false
+        return
+    }
+
+    if (isSupplyHyoroMultipleEnabled) {
+        maxAllowed := (Floor(currentAmount / amountOfSupplyHyoro) + 1) * amountOfSupplyHyoro  ; Actually max amount.
+
+        if (maxAllowed > maxAmount) {
+            maxAllowed := maxAmount
+        }
+
+        ;MsgBox, %maxAllowed% [maxAllowed]
+
+        modifiedAmountOfSupply := maxAllowed - currentAmount
+
+
+        ;MsgBox, %remain% [remain]
+        sliderRate := Round(modifiedAmountOfSupply / (remain + increaseAmount), 3)
+        ;MsgBox, %sliderRate% [sliderRate]
+
+        ;MsgBox, %fullRemain% [fullRemain]
+        ;MsgBox, %increaseAmount% [increaseAmount]
+        sliderCurrentXPos := % sliderBeginXPos + increaseAmount / fullRemain * (sliderEndXPos - sliderBeginXPos)
+        ;MsgBox, %sliderCurrentXPos% [sliderCurrentXPos]
+
+        if (sliderRate > 0.05) {  ; If amount of a slider movement is litte, don't use  the sliedr.
+            sliderStopXPos := % sliderCurrentXPos + sliderRate * (sliderEndXPos - sliderBeginXPos)
+
+            ;MsgBox, %sliderStopXPos% [sliderStopXPos 73-169]
+            ;sliderStopXPos -= 20
+
+            MouseClickDrag, LEFT, %sliderCurrentXPos%, %sliderYPos%, %sliderStopXPos%, %sliderYPos%
+            Sleep, sleepDuration1
+            currentAmount := getWindowText(8)
+        }
+            
+        numericalError := % maxAllowed - currentAmount
+        ;MsgBox, %numericalError% [numericalError]
+
+        if (numericalError == 0) {
+            isSupplyHyoroRunning := false
+
+            if (isReturnsCursorFixedAmountSupplyHyoro) {    
+                MouseMove, %currentMouseXPos%, %currentMouseYPos%
+            }
+            return
+        }
+
+        if (numericalError < 0) {
+            isNegativeNumber := true
+            tensPlaceSpins := numericalError // -10
+            onesPlaceSpins := Abs(Mod(numericalError, 10))
+
+        } else {
+            tensPlaceSpins := numericalError // 10
+            onesPlaceSpins := Mod(numericalError, 10)
+        }
+
+        ;MsgBox, %tensPlaceSpins% [tensPlaceSpins]
+        ;MsgBox, %onesPlaceSpins% [onesPlaceSpins]
+
+        if (isNegativeNumber) {
+            if (tensPlaceSpins) {
+                MouseMove, %10spinXPos%, %minusSpinYPos%
+                Sleep, sleepDuration1
+                Click, %tensPlaceSpins%
+                Sleep, sleepDuration1
+            }
+
+            if (onesPlaceSpins) {
+                MouseMove, %1spinXPos%, %minusSpinYPos%
+                Sleep, sleepDuration1
+                Click, %onesPlaceSpins%
+                Sleep, sleepDuration1
+            }
+        } else {
+            if (tensPlaceSpins) {
+                MouseMove, %10spinXPos%, %plusSpinYPos%
+                Sleep, sleepDuration1
+                Click, %tensPlaceSpins%
+                Sleep, sleepDuration1
+            }
+
+            if (onesPlaceSpins) {
+                MouseMove, %1spinXPos%, %plusSpinYPos%
+                Sleep, sleepDuration1
+                Click, %onesPlaceSpins%
+                Sleep, sleepDuration1
+            }
+        }
+    } else {        
+        sliderRate := Round(amountOfSupplyHyoro / (remain + increaseAmount), 3)   
+        sliderCurrentXPos := % sliderBeginXPos + increaseAmount / fullRemain * (sliderEndXPos - sliderBeginXPos)
+        sliderStopXPos := % sliderCurrentXPos + sliderRate * (sliderEndXPos - sliderBeginXPos)
+        MouseClickDrag, LEFT, %sliderCurrentXPos%, %sliderYPos%, %sliderStopXPos%, %sliderYPos%
+        Sleep, sleepDuration1
+
+/*
+        MsgBox, %currentAmount%
+        MsgBox, %maxAmount%
+        MsgBox, %remain%
+        MsgBox, %sliderRate%
+*/
+    }
+
+    if (isReturnsCursorFixedAmountSupplyHyoro) {    
+        MouseMove, %currentMouseXPos%, %currentMouseYPos%
+    }
+
+    isSupplyHyoroRunning := false
 }
+
 
 maxSupplyHyoro() {
     global sleepDuration1
     global isMaxSupplyHyoroEnabled
-    global isReturnsCurSorSupplyHyoro
-    sliderBeginPos := 71
-    sliderEndPos := 171
+    global isReturnsCursorMaxSupplyHyoro
+    global isSupplyHyoroRunning
+    sliderBeginXPos := 73
+    sliderEndXPos := 169
     sliderYPos := 313
 
     if (!isMaxSupplyHyoroEnabled) {
         return
     }
 
-    if (isReturnsCurSorSupplyHyoro) {
+    isSupplyHyoroRunning := true
+
+    if (isReturnsCursorMaxSupplyHyoro) {
         MouseGetPos, currentMouseXPos, currentMouseYPos
-        MouseMove, %sliderBeginPos%, %sliderYPos%
+        MouseMove, %sliderBeginXPos%, %sliderYPos%
         Sleep, sleepDuration1
-        click  ; To returns a thumb of slider to the left side.
+        Click  ; To returns a thumb of slider to the left side.
         Sleep, sleepDuration1
-        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+        MouseClickDrag, LEFT, %sliderBeginXPos%, %sliderYPos%, %sliderEndXPos%, %sliderYPos%
         Sleep, sleepDuration1
         MouseMove, %currentMouseXPos%, %currentMouseYPos%
     } else {
-        MouseMove, %sliderBeginPos%, %sliderYPos%
+        MouseMove, %sliderBeginXPos%, %sliderYPos%
         Sleep, sleepDuration1
-        click
+        Click
         Sleep, sleepDuration1
-        MouseClickDrag, LEFT, %sliderBeginPos%, %sliderYPos%, %sliderEndPos%, %sliderYPos%
+        MouseClickDrag, LEFT, %sliderBeginXPos%, %sliderYPos%, %sliderEndXPos%, %sliderYPos%
     }
+
+    isSupplyHyoroRunning := false
 }
 
 customManageCorpsFunds() {
@@ -962,7 +1104,9 @@ XButton1::  ; Main action button.
         case "徴兵":  ; Execuete a command of the fixed amount draft.
             fixedAmountDraft()
         case "城兵糧補充":
-            fixedAmountSupplyHyoro()
+            if (!isSupplyHyoroRunning) {
+                fixedAmountSupplyHyoro()
+            }
         case "軍団資産":
             if (!isCustomManageCorpsFundsRunning) {
                 customManageCorpsFunds()
@@ -984,7 +1128,6 @@ XButton1::  ; Main action button.
                     ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
                     ;MsgBox, 出陣フェイズ
-
             }
     }
     return
@@ -1004,9 +1147,9 @@ XButton2::
                 customMaxDraft()
             }       
         case "城兵糧補充":
-            maxSupplyHyoro()
-        case "軍団資産":
-
+            if (!isSupplyHyoroRunning) {
+                maxSupplyHyoro()
+            }
         case "戦国史SE", "戦国史FE":
             ;MsgBox, フェイズ判定へ
             phaseType := detectPhase()
@@ -1024,7 +1167,6 @@ XButton2::
                     ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
                     ;MsgBox, 出陣フェイズ
-
             }
     }
     return
