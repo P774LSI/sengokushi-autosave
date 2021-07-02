@@ -1,11 +1,12 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0.α6 / 20210628"
+; @version "1.2.0.α7 / 20210702"
 ; @author "P-774LSI"
 ; @lisence "CC0"
 
 /*
 概要: 戦国史SE, 戦国史FEで「オートセーブ」・「クイックセーブ」を行うユーザー操作補助スクリプトです。
-また拡張機能として「内政アシスト」・「足軽数が指定数以上の人物は最大まで徴兵する」・「軍団資産の数値ワンクリック入力」コマンドを提供します。
+また拡張機能として「内政アシスト」・「足軽・城兵を指定数だけ徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・「兵糧を指定数だけ補充」・「兵糧を最大まで補充」・「軍団資産の初期数値入力」
+コマンドを提供します。
 使用にはAutoHotkey（以下AHK） v1.1.31以上（ユニコード版）の導入が必要です（v2系は動作保証外）。
 スクリプト実行中は、マウスのセンターボタン・サイドボタン1・2、キーボードのF2～F3およびF7～F12、Scroll Lockがゲーム用のキー割り当てに変更されます。
 これらのホットキーは戦国史がアクティブな場合に限り、使用できます。非アクティブ化で自動的にオフになります。
@@ -49,7 +50,7 @@ F9: 新田開発の有効/無効切り替え。
 F10: 産業開発の有効/無効切り替え。
 F11: 鉄砲生産の有効/無効切り替え。
 F12: セーブファイルフォルダを開く。
-Scroll Lock: サスペンド（ホットキー無効化）の有効/無効の切り替え。
+Scroll Lock: サスペンド（ホットキー無効化）の有効/無効の切り替え。これはオートサスペンドが無効時の切り替え操作のために用意されています。
 
 ※キーボードのホットキーはF12以外はすべてブール値の切り替えを行うためのみに用意されています。これらの切り替えが不要な場合はすべて削除しても動作します。
 */
@@ -113,10 +114,10 @@ isOverwrite := false
 ;-------------------------
 ; 拡張機能の有効/無効をブール値で切り替えます。
 ; この設定を`true`にすると、スクリプトに対してゲーム内から追加の情報を読み取る許可を与え、拡張機能の使用を可能にします。
-; 具体的には「内政アシスト」・「指定数の足軽・城兵を徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・【指定数の兵糧を補充】・「兵糧を最大まで補充」・「軍団資産の初期数値入力」を使用可能にします。
+; 具体的には「内政アシスト」・「足軽・城兵を指定数だけ徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・【兵糧を指定数だけ補充】・「兵糧を最大まで補充」・「軍団資産の初期数値入力」を使用可能にします。
 isLogical := true
 
-; 現在内政フェイズかどうかを判断し、内政フェイズのカスタムユーザーコマンドを実行するための判断リストです。
+; 現在内政フェイズかどうかを判断し、「内政アシスト」を適切に実行するための判断リストです。
 ; ユーザー作製シナリオでは、内政フェイズのすべての単語が置換されている可能性があるため、リストの確認が必要です。サンプルシナリオでは不要です。
 ; 以下のリスト内の単語が1つでも内政コマンドに含まれているように、必要に応じてリストに追記を行います。
 pendingList1 := ["新田開墾", "楽市楽座", "鉱山開発", "鉄砲生産", "商業整備", "産業整備"]
@@ -124,7 +125,7 @@ pendingList1 := ["新田開墾", "楽市楽座", "鉱山開発", "鉄砲生産",
 
 ; 【内政アシスト】
 ; 「内政アシスト」を有効化するかどうかのブール初期値を指定します。キーボードのF7で初期値から変更できます。
-; この値が`false`の場合、以降の内政個別設定内容に関係なく、ユーザー操作アシストは無効化されます。
+; この値が`false`の場合、以降の内政個別設定内容に関係なく、内政アシストは無効化されます。
 isAssistDomesticAffairsEnabled := true
 
 ; 「内政アシスト」に商業開発を含めるかどうかのブール初期値を指定します。切り替えホットキーはF8。
@@ -143,19 +144,22 @@ isMatchlocksProductionEnabled := true
 fundsLimit := 10000
 
 
-; 【指定数の足軽・城兵を徴兵】
-; 「指定数の足軽・城兵を徴兵」コマンドを有効化するかどうかのブール値を指定します。
+; 【足軽・城兵を指定数だけ徴兵】
+; 「足軽・城兵を指定数だけ徴兵」コマンドを有効化するかどうかのブール値を指定します。
 isFixedAmountDraftEnabled := true
 
-; 選択した人物に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際、以下の回数だけ足軽スピンをクリックします。例えば「兵最小単位」が10のシナリオで50と設定された場合、500人を徴兵します。
+; 選択した人物に対して「足軽・城兵を指定数だけ徴兵」コマンドを実行した際、以下の回数だけ足軽スピンをクリックします。例えば「兵最小単位」が10のシナリオで50と設定された場合、500人を徴兵します。
 draftForGeneralSpinClicks := 85
 
-; 選択した城に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
+; 選択した城に対して「足軽・城兵を指定数だけ徴兵」コマンドを実行した際、以下の回数だけ守備兵スピンをクリックします。
 draftForCastleSpinClicks := 25
 
-; 選択した城に対して「指定数の足軽・城兵を徴兵」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を計算し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
+; 選択した城に対して「足軽・城兵を指定数だけ徴兵」コマンドを実行した際に徴兵された城兵数から「兵最小単位」を計算し、次回以降の同コマンド実行時に城兵数が1回あたりの徴兵数の倍数になるように調整を行います。
 ; 例えば城兵数が720の城に対して500が一度に徴兵される設定だった場合、徴兵すると1,220ではなく、500の倍数である1,000になるように調整が行われます。
 isDraftDefenderMultipleEnabled := true
+
+; 「足軽・城兵を指定数だけ徴兵」コマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
+isReturnsCursorFixedAmountDraft := true
 
 
 ; 【足軽数が指定数以上の人物はすべて最大まで徴兵】
@@ -169,19 +173,19 @@ targetNumberOfSoldiers := 4000
 draftRemainLimit := 3000
 
 
-; 【指定数の兵糧を補充】
-; 「指定数の兵糧を補充」コマンドを有効化するかどうかのブール値を指定します。
+; 【兵糧を指定数だけ補充】
+; 「兵糧を指定数だけ補充」コマンドを有効化するかどうかのブール値を指定します。
 isFixedAmountSupplyHyoroEnabled := true
 
-; 「指定数の兵糧を補充」コマンド実行時に補充される1回あたりの兵糧の数量を指定します。
+; 「兵糧を指定数だけ補充」コマンド実行時に補充される1回あたりの兵糧の数量を指定します。
 ; これはスライダーのみによる補充で、微調整は行いません。ほとんどのケースで指定数よりも幾らか誤差が出ます。誤差を出したくない、または末尾の数字を0で揃えたい場合は次の倍数指定を有効化してください。
 amountOfSupplyHyoro := 2500
 
-; 「指定数の兵糧を補充」コマンドを実行した際に、補充後の兵糧が指定数の倍数になるように自動で調整します。
+; 「兵糧を指定数だけ補充」コマンドを実行した際に、補充後の兵糧が指定数の倍数になるように自動で調整します。
 ; 例えば兵糧が5,330の城に対して2,500が一度に補充される設定だった場合、補充すると7,830ではなく、2,500の倍数である7,500になるように調整が行われます。
 isSupplyHyoroMultipleEnabled := false
 
-; 「指定数の兵糧を補充」コマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
+; 「兵糧を指定数だけ補充」コマンドを実行した後に、マウスカーソルを元の位置に戻すかどうかのブール値を指定します。
 isReturnsCursorFixedAmountSupplyHyoro := true
 
 
@@ -241,6 +245,7 @@ appProcessFE = ahk_exe 戦国史FE.exe
 saveFolderPath =
 elapsedTime := 0
 checkDuration := 60000
+isSaveComplete :=
 
 ; About extensions.
 mouseXPos := 0  ; Current mouse X pos.
@@ -252,17 +257,14 @@ subWindow1checkBoxYPos := 94  ; Client coordinate. Not window cordinate !
 
 funds := 0
 oldFunds := 0
-isDomesticAffairsPhase := false
 domesticAffairsWord =
-isSupplyHyoroRunning := false
+soldierUnit := 0  ; 1 or 10.  Define the parameter the first time of draft command.
+draftDefenderAmount := 0  ; soldierUnit(1 or 10) * draftForCastleSpinClicks(user define number)
+
 isCustomDraftRunning := false
+isSupplyHyoroRunning := false
 isCustomManageCorpsFundsRunning := false
 isAssistDomesticAffairsRunning := false
-soldierUnit := 0
-draftDefenderAmount := 0
-
-; Use only the command of hyoro supply.
-isSupplyHyoroRunning := false
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -650,6 +652,7 @@ fixedAmountDraft() {
     global isDraftDefenderMultipleEnabled
     global soldierUnit
     global draftDefenderAmount
+    global isReturnsCursorFixedAmountDraft
     maxAllowed := 0
     actuallySpinClicks := 0
 
@@ -696,6 +699,10 @@ fixedAmountDraft() {
             BlockInput, MouseMoveOff
         }
 
+    }
+
+    if (isReturnsCursorFixedAmountDraft) {    
+        MouseMove, %currentMouseXPos%, %currentMouseYPos%
     }
 }
 
@@ -903,13 +910,6 @@ fixedAmountSupplyHyoro() {
         sliderStopXPos := % sliderCurrentXPos + sliderRate * (sliderEndXPos - sliderBeginXPos)
         MouseClickDrag, LEFT, %sliderCurrentXPos%, %sliderYPos%, %sliderStopXPos%, %sliderYPos%
         Sleep, sleepDuration1
-
-/*
-        MsgBox, %currentAmount%
-        MsgBox, %maxAmount%
-        MsgBox, %remain%
-        MsgBox, %sliderRate%
-*/
     }
 
     if (isReturnsCursorFixedAmountSupplyHyoro) {    
