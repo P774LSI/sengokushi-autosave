@@ -1,6 +1,6 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.2.0 / 20210702"
-; @author "P-774LSI"
+; @version "1.2.0 / 20210703"
+; @author "P-774LSI / https://github.com/P774LSI/sengokushi-autosave"
 ; @lisence "CC0"
 
 /*
@@ -11,7 +11,7 @@
 スクリプト実行中は、マウスのセンターボタン・サイドボタン1・2、キーボードのF2～F3およびF7～F12、Scroll Lockがゲーム用のキー割り当てに変更されます。
 これらのホットキーは戦国史がアクティブな場合に限り、使用できます。非アクティブ化で自動的にオフになります。
 Scroll Lock押下、もしくはタスクトレイのアイコンからもサスペンド（ホットキーの無効化）は切り替えできます。
-各種設定は54行目から記述されています。
+各種設定は59行目から記述されています。
 
 ・オートセーブは戦国史がアクティブかつ、ユーザーが一定時間操作をしない場合に行われます。
 
@@ -22,9 +22,9 @@ Scroll Lock押下、もしくはタスクトレイのアイコンからもサス
 ・内政アシストは、商業開発・新田開発・産業開発・鉄砲生産の4つを実装しています。不要なものはホットキーでoffにできます。
 
 ・テストは主に戦国史SE・Windows10下で行っています。環境によっては動作に問題が出る可能性があります。
-動作が不正確な場合は141行目の【高度な設定】から`sleepDuration1`の値を増やすことで改善されるかもしれません。
+動作が不正確な場合は220行目の【高度な設定】から`sleepDuration1`の値を増やすことで改善されるかもしれません。
 
-・ホットキーの変更は642行目以降を書き換えてください。
+・ホットキーの変更は1017行目以降を書き換えてください。
 http://ahkwiki.net/KeyList
 http://ahkwiki.net/Hotkeys
 
@@ -34,8 +34,8 @@ http://ahkwiki.net/Hotkeys
 【マウス】
 センターボタン: クイックセーブ。
 サイドボタン1:  [軍備フェイズ] 徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
-               [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、事前に定められた数量の兵糧を補充します。
-               [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に定められた数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
+               [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、事前に指定された数量の兵糧を補充します。
+               [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に指定された数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
                [内政フェイズ] 内政アシスト。内政フェイズで各サブウィンドウを開く前に押します。
 サイドボタン2:  [軍備フェイズ] 徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
                [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
@@ -112,10 +112,11 @@ isOverwrite := false
 ; ------------------------
 ; =====【拡張機能設定】=====
 ;-------------------------
+; 【システム】
 ; 拡張機能の有効/無効をブール値で切り替えます。
 ; この設定を`true`にすると、スクリプトに対してゲーム内から追加の情報を読み取る許可を与え、拡張機能の使用を可能にします。
 ; 具体的には「内政アシスト」・「足軽・城兵を指定数だけ徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・【兵糧を指定数だけ補充】・「兵糧を最大まで補充」・「軍団資産の初期数値入力」を使用可能にします。
-isLogical := true
+isExtensionEnabled := true
 
 ; 現在内政フェイズかどうかを判断し、「内政アシスト」を適切に実行するための判断リストです。
 ; ユーザー作製シナリオでは、内政フェイズのすべての単語が置換されている可能性があるため、リストの確認が必要です。サンプルシナリオでは不要です。
@@ -491,7 +492,6 @@ detectPhase() {
     for i, cElement in commandTexts {
         if (cElement == domesticAffairsWord) {
             funds := commandTexts[20]  ; Set a funds.
-            ;MsgBox, %funds%
             return 3
         } else if (cElement == armamentsWord) {
             return 2
@@ -541,7 +541,6 @@ assistDomesticAffairs() {
 
     Sleep, 100  ; Wait a few minutes until the main window is displayed.
     oldFunds := getWindowText(fundsIndex)  ; Get an updated funds from the main window.
-    ;MsgBox, %oldFunds%
     isAssistDomesticAffairsRunning := false
 }
 
@@ -586,9 +585,6 @@ subWindowRoutine1() {
     global checkBoxColor
     global subWindow1checkBoxXPos
     global subWindow1checkBoxYPos
-    global isLogical
-    global oldFunds
-    global funds
 
     if (getColor(subWindow1checkBoxXPos, subWindow1checkBoxYPos) == checkBoxColor) {  ; If exist a check box, execute the routine.
         Send {Tab}
@@ -625,9 +621,6 @@ subWindowRoutine1() {
 
 subWindowRoutine2() {  ; Only use the produce matchlocks.
     global sleepDuration1
-    global isLogical
-    global oldFunds
-    global funds
 
     Send {Tab}
     Sleep, sleepDuration1
@@ -825,33 +818,18 @@ fixedAmountSupplyHyoro() {
             maxAllowed := maxAmount
         }
 
-        ;MsgBox, %maxAllowed% [maxAllowed]
-
         modifiedAmountOfSupply := maxAllowed - currentAmount
-
-
-        ;MsgBox, %remain% [remain]
         sliderRate := Round(modifiedAmountOfSupply / (remain + increaseAmount), 3)
-        ;MsgBox, %sliderRate% [sliderRate]
-
-        ;MsgBox, %fullRemain% [fullRemain]
-        ;MsgBox, %increaseAmount% [increaseAmount]
         sliderCurrentXPos := % sliderBeginXPos + increaseAmount / fullRemain * (sliderEndXPos - sliderBeginXPos)
-        ;MsgBox, %sliderCurrentXPos% [sliderCurrentXPos]
 
         if (sliderRate > 0.05) {  ; If amount of a slider movement is litte, don't use  the sliedr.
             sliderStopXPos := % sliderCurrentXPos + sliderRate * (sliderEndXPos - sliderBeginXPos)
-
-            ;MsgBox, %sliderStopXPos% [sliderStopXPos 73-169]
-            ;sliderStopXPos -= 20
-
             MouseClickDrag, LEFT, %sliderCurrentXPos%, %sliderYPos%, %sliderStopXPos%, %sliderYPos%
             Sleep, sleepDuration1
             currentAmount := getWindowText(8)
         }
             
         numericalError := % maxAllowed - currentAmount
-        ;MsgBox, %numericalError% [numericalError]
 
         if (numericalError == 0) {
             isSupplyHyoroRunning := false
@@ -871,9 +849,6 @@ fixedAmountSupplyHyoro() {
             tensPlaceSpins := numericalError // 10
             onesPlaceSpins := Mod(numericalError, 10)
         }
-
-        ;MsgBox, %tensPlaceSpins% [tensPlaceSpins]
-        ;MsgBox, %onesPlaceSpins% [onesPlaceSpins]
 
         if (isNegativeNumber) {
             if (tensPlaceSpins) {
@@ -1094,7 +1069,7 @@ MButton:: ; Quick save.
     return
 
 XButton1::  ; Main action button.
-    if (!isLogical || !WinExist(appProcess) || !WinActive(appProcess)) {
+    if (!isExtensionEnabled || !WinExist(appProcess) || !WinActive(appProcess)) {
         return
     }
 
@@ -1112,28 +1087,21 @@ XButton1::  ; Main action button.
                 customManageCorpsFunds()
             }
         case "戦国史SE", "戦国史FE":
-            ;MsgBox, フェイズ判定へ
             phaseType := detectPhase()
-
-            ;MsgBox, %phaseType%
 
             switch phaseType {
                 case 1:  ; Personnel phase.
-                    ;MsgBox, 人事フェイズ
                 case 2:  ; Armaments phase.
-                    ;MsgBox, 軍備フェイズ
                 case 3:  ; Domestic affairs phase.
                     assistDomesticAffairs()
                 case 4:  ; Strategy phase.
-                    ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
-                    ;MsgBox, 出陣フェイズ
             }
     }
     return
 
 XButton2::
-    if (!isLogical || !WinExist(appProcess) || !WinActive(appProcess)) {
+    if (!isExtensionEnabled || !WinExist(appProcess) || !WinActive(appProcess)) {
         return
     }
 
@@ -1151,54 +1119,14 @@ XButton2::
                 maxSupplyHyoro()
             }
         case "戦国史SE", "戦国史FE":
-            ;MsgBox, フェイズ判定へ
             phaseType := detectPhase()
-
-            ;MsgBox, %phaseType%
 
             switch phaseType {
                 case 1:  ; Personnel phase.
-                    ;MsgBox, 人事フェイズ
                 case 2:  ; Armaments phase.
-                    ;MsgBox, 軍備フェイズ
                 case 3:  ; Domestic affairs phase.
-                    ;MsgBox, 内政フェイズ
                 case 4:  ; Strategy phase.
-                    ;MsgBox, 移動フェイズ
                 case 5:  ; Departure phase.
-                    ;MsgBox, 出陣フェイズ
             }
     }
     return
-
-; The following code is for the development and test.
-Home::
-    global appProcess
-
-    WinGetText, strings, %appProcess%
-    ;array := StrSplit(strings, "`n")
-    MsgBox, %strings%
-    return
-
-Insert::
-    WinGetTitle, windowTitle, %appProcess%
-    MsgBox, %windowTitle%
-    return
-
-Delete::
-    ControlGetText, OutputVar, Button1, %appProcess%
-    MsgBox, %OutputVar%
-    return
-
-Break::
-    Click, 100
-
-isMainWindow() {
-    WinGetTitle, windowTitle, %appProcess%
-
-    if (windowTitle == "戦国史SE" || windowTitle == "戦国史FE") {
-        return true
-    } else {
-        return false
-    }
-}
