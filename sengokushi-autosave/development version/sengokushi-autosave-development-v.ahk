@@ -229,7 +229,7 @@ sleepDuration1 := 50
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
 
-
+sleepDuration3 := 1500
 
 
 
@@ -256,6 +256,8 @@ checkBoxColor := 0x808080  ; Gray. RGB, 128, 128, 128
 subWindow1checkBoxXPos := 23  ; Client coordinate. Not window cordinate !
 subWindow1checkBoxYPos := 94  ; Client coordinate. Not window cordinate !
 grayOutColor := 0x808080  ; String color of a gray out.
+fontColor := 0x000000  ; Default font color.
+lineColor := 0xE0E0E0  ; Line color of a list.
 
 funds := 0
 oldFunds := 0
@@ -267,6 +269,10 @@ isCustomDraftRunning := false
 isSupplyHyoroRunning := false
 isCustomManageCorpsFundsRunning := false
 isAssistDomesticAffairsRunning := false
+isAfbRunning := false
+
+; test
+sleepDurationTest1 := 1000
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -306,75 +312,191 @@ setTooltipText()
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Objects.
-addNum() {
-    return 1 + 2
-}
 
-; `fb` is fieldBattle.
-fb := {}
+; Auto field battle(AFB).
+afb := {}
 
-fb.generalListTop := 168
-fb.generalListRowHeight := 17
-
-fb.foo := "bar"
-
-;fb.listTop
-;fb.honzinStringColorXPos := 263
-;fb.honzinStringColorYPos := 483
-;fb.honzinStringColor := getColor(263, 483)
+afb.generalListTop := 168
+afb.generalListRowHeight := 16
 
 
 
-fb.jindate := Func("_fbJindate")
-fb.engage := Func("_fbEngage")
-fb.judgeAction := Func("_fbJudgeAction")
-fb.inputAction := Func("_fbInputAction")
-fb.test := Func("_fbTest")
+;afb.listTop
+;afb.honzinStringColorXPos := 263
+;afb.honzinStringColorYPos := 483
+;afb.honzinStringColor := getColor(263, 483)
+
+
+
+afb.jindate := Func("_afbJindate")
+afb.engage := Func("_afbEngage")
+afb.judgeAction := Func("_afbJudgeAction")
+afb.inputAction := Func("_afbInputAction")
+afb.detectBattleArray := Func("_afbDetectBattleArray")
 
 
 
 
-
-_fbJindate(this, commanderType) {
+_afbJindate(this, commanderType) {
+    global isAfbRunning
     global sleepDuration1
     global grayOutColor
-    honzinStringColor := getColor(263, 483)
+    global lineColor
+    global sleepDurationTest1
+    honzinStringColor :=
+    isBottom := false
+    color1 :=
+    counter := 0
+    currentYPos :=
     ;MsgBox, %honzinStringColor%
+    isAfbRunning := true
 
+/*`
     if (honzinStringColor == grayOutColor) {
         ;MsgBox, 総大将決定済
         commanderType := 0
     }
+*/
+
+    isAfbRunning := true
+/*
+    if (getWindowText(1) == "OK") {
+        Send {Enter}  ; Skip `OK`.
+    }
+*/
+    WinGetTitle, windowTitle, %appProcess%
+
+    if (windowTitle != "野戦発生") {
+        isAfbRunning := false
+        return
+    }
 
     switch commanderType {
-        case 1:  ; The commander has the smallest forces.
-            ;MsgBox, % this.foo
-        case 2:
+        case 1:  ; The commander having the smallest units.
+            MouseMove, 210, 160
+            Sleep, sleepDurationTest1
+            Click
+
+            While (!isBottom || counter < 21) {
+                counter++
+                ;currentYPos := % this.generalListTop + this.generalListRowHeight
+                ;MsgBox, %currentYPos% [currentYPos]
+
+                color1 := getColor(100, this.generalListTop + this.generalListRowHeight * counter)
+                ;MsgBox, color1 [color1]
+
+                if (color1 != lineColor) {
+                    isBottom := true
+                }
+            }
+
+            MouseMove, 210, % this.generalListTop + this.generalListRowHeight * (counter - 1)
+            Sleep, 2000
+            Click
+            honzinStringColor := getColor(263, 483)
+
+            if (honzinStringColor == grayOutColor) {
+                commanderType := 0
+            }
         
-        case 3:
-  
+        case 2:  ; The commander having the biggest units.
+        
+        case 3:  ; The commander having a highest leadership ability with the field battle.
+            MsgBox, case3
+            MouseMove, 353, 160
+            Sleep, sleepDurationTest1
+            Click  ; Click a column header to ordered the list by the leadership ability.
+            Sleep, sleepDurationTest1
+            ;MouseClick, WheelUp, , , 5
+            Sleep, sleepDurationTest1
+            MouseMove, 353, 174
+            Sleep, sleepDurationTest1
+            Click  ; Choose a commander.
+
+            honzinStringColor := getColor(263, 483)
+
+            if (honzinStringColor == grayOutColor) {
+                commanderType := 0
+            }
+    }
+
+    if (commanderType) {
+        MouseMove, 290, 485  ; Hover the cursor on the `Honjin(本陣)` button.
+        Sleep, sleepDurationTest1
+        Click
+        Sleep, sleepDurationTest1
+    } else {
+        Click
+        Sleep, sleepDuration2
     }
 
     ; Set all the general to the first group.
-    MouseMove, 20, % this.generalListTop + 8
-    Sleep, sleepDuration1
-    MouseClickDrag, LEFT, 0, 0, 0, 400, 5, R
-    Sleep, sleepDuration1
+    MouseMove, 110, % this.generalListTop + 8
+    Sleep, sleepDurationTest1
+    MouseClickDrag, LEFT, 0, 0, 0, 500, 5, R
+    Sleep, sleepDurationTest1
     MouseMove, 110, 485
-    Sleep, sleepDuration1
+    Sleep, sleepDurationTest1
     Click
-    Sleep, sleepDuration1
+    Sleep, sleepDurationTest1
     MouseMove, 772, 20
-    Sleep, sleepDuration1
+    Sleep, sleepDurationTest1
     Click
 }
 
-_fbJudgeAction(this, defaultAction) {
+_afbJudgeAction(this, actionType) {
+    global fontColor
+    stringColor :=
+    isConfirm :=
+    priorityList :=
+    priorityList1 := [2, 1, 3, 3]
+    priorityList2 :=
+    priorityList3 :=
+    priorityList9a := [6, 2]  ; 奇襲退却
+    priorityList9b := [2, 3]  ; 奇襲反撃
+    isShootOut :=
 
+    While (!isConfirm) {
+        switch actionType {
+            case 1:  ; Move forward(前進).
+                stringColor := getColor(54, 41)
+
+                if (stringColor == fontColor) {
+                    return 1
+                } else {
+                    actionType := 2
+                }
+            case 2:  ; Attack(攻撃).
+                stringColor := getColor(190, 41)
+
+                if (stringColor == fontColor) {
+                    ;MsgBox, 攻撃決定
+                    return 2
+                } else {
+                    actionType := 1
+                }
+            case 3:  ; Fire(鉄砲射撃).
+                stringColor := getColor(77, 71)  ; or getColor(77, 69)
+
+                if (stringColor == fontColor) {
+                    return 3
+                } else {
+                    ;MsgBox, 攻撃可能判定へ
+                    actionType := 2
+                }
+            case 4:  ; Change a battle array(先陣／第二陣 交代).
+                return 4
+            case 5:  ; Wait(待機).
+                return 5
+            case 6:  ; Restreat(退却).
+                return 6
+        }
+    }
 }
 
-_fbInputAction(this, actionType) {
+_afbInputAction(this, actionType) {
     global sleepDuration1
+    global sleepDurationTest1
     leftButtonXPos := 62
     rightButtonXPos := 186
     moveForwardYPos := 45
@@ -389,67 +511,150 @@ _fbInputAction(this, actionType) {
     switch actionType {
         case 1:  ; Move forward(前進).
             MouseMove, %leftButtonXPos%, %moveForwardYPos%
-            Sleep, sleepDuration1
+            Sleep, sleepDurationTest1
             Click
         case 2:  ; Attack(攻撃).
+            ;MsgBox, 攻撃！
             MouseMove, %rightButtonXPos%, %attackYPos%
-            Sleep, sleepDuration1
-            Click        
+            Sleep, sleepDurationTest1
+            Click
         case 3:  ; Fire(鉄砲射撃).
             MouseMove, %leftButtonXPos%, %fireYPos%
-            Sleep, sleepDuration1
+            Sleep, sleepDurationTest1
             Click
-        case 4:  ; Change battle array(先陣／第二陣 交代).
+        case 4:  ; Change a battle array(先陣／第二陣 交代).
             MouseMove, %rightButtonXPos%, %changeBattleArrayYPos%
-            Sleep, sleepDuration1
+            Sleep, sleepDurationTest1
             Click
         case 5:  ; Wait(待機).
             MouseMove, %leftButtonXPos%, %waitYPos%
-            Sleep, sleepDuration1
+            Sleep, sleepDurationTest1
             Click
         case 6:  ; Restreat(退却).
             MouseMove, %rightButtonXPos%, %retreatYPos%
-            Sleep, sleepDuration1
+            Sleep, sleepDurationTest1
             Click
     }
 }
 
-_fbEngage(this, jindateType) {
+_afbDetectBattleArray(this, turn) {
+    enemyColor :=
+    friendColor :=
+    checkColors := [0xFFFFFF]
+    battleArray := []  ; Index 0-2: Friendly array pos. Index 3-5: Enemy array pos. Index 6: Distance.
+    matches := 0
+
+    switch turn {
+        case 1:
+            matches := compareColors(checkColors, 682, 83, 2)
+
+            if (matches) {
+                matches := compareColors(checkColors, 585, 101, 2)
+            }
+
+
+
+    }
+
+
+}
+
+_afbEngage(this, jindateType) {
     global sleepDuration1
+    global sleepDuration2
+    global sleepDuration3
+    global sleepDurationTest1
     global grayOutColor
+    global fontColor
     turn := 0
+    battleArray :=
+    checkColors := [0xFFFFFF]
 
     ;MsgBox, engage1ok
-    
-    testActions := [3, 1, 1, 2, 2, 2]
-    
+    testActions1 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    testActions2 := [3, 1, 1, 1, 2, 2, 2]
+    testActions3 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    testActions8 := [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+
+    ; Determine whether or not a surprise attack has occurred.
+    if (getWindowText(1) == "OK") {
+        Send {Enter}
+        sleep, sleepDuration2
+
+        if (compareColors(fontColor, 183, 103, 2)) {
+            jindateType := 8  ; Surprise attack succeeded.
+        } else {
+            jindateType := 9
+        }
+    }
+
+    if (compareColors([fontColor], 183, 103, 2)) {
+        jindateType := 8  ; Surprise attack succeeded.
+    } else {
+        jindateType := 9
+    }
+
+
 
     switch jindateType {
         case 1:
-            MsgBox, 通常釣り出し
+            ;MsgBox, 通常釣り出し
+
+            for i, element in testActions3 {
+                turn++
+                ;MsgBox, %i%
+                this.inputAction(this.judgeAction(element))
+                Sleep, sleepDuration3
+
+                if (getWindowText(1) == "OK") {
+                    ;MsgBox, End of battle.
+                    break
+                }
+            }    
         case 2:
-            MsgBox, 鉄砲釣り出し
+            ;MsgBox, 鉄砲釣り出し
         case 3:
             ;MsgBox, 通常会戦
 
-            for i, element in testActions {
+            for i, element in testActions3 {
                 turn++
                 ;MsgBox, %i%
-                this.inputAction(element)
-                Sleep, % sleepDuration1 * 10
+                
+
+                this.inputAction(this.judgeAction(element))
+                Sleep, % sleepDuration3
+
+                if (getWindowText(1) == "OK") {
+                    ;MsgBox, End of battle.
+                    break
+                }
             }            
-    
+        case 8:  ; Surprise attack succeeded.
+            for i, element in testActions3 {
+                turn++
+                ;MsgBox, %i%
+                this.inputAction(this.judgeAction(element))
+                Sleep, % sleepDuration8
+
+                if (getWindowText(1) == "OK") {
+                    ;MsgBox, End of battle.
+                    break
+                }
+            }
+        case 9:
   
     }
+
+    Sleep, sleepDuration2
+    MouseMove, 88, 48
+    Sleep, sleepDurationTest1
+    Click
+    MouseMove, 126, 170
+    Sleep, sleepDurationTest1
+    Click
+    isAfbRunning := false
 }
 
-_fbTest(this) {
-    MsgBox, fb.test ok!
-    ;MsgBox, % this.honzinFontColor
-}
-
-;fb.jindate(1)
-;fb.test()
 
 
 
@@ -602,6 +807,34 @@ getPrefix() {
 getColor(x, y) {
     PixelGetColor, Color, x, y, RGB Alt
     return Color
+}
+
+
+/*
+ * @function
+ * @param {Array} colors Required.
+ * @param {number} x Required.
+ * @param {number} y Required.
+ * @param {number} delta Required.
+ * @returns {number} Returns are number of matched colors.
+ */
+compareColors(colors, x, y, delta) {
+    matches := 0
+
+    for i, Element in colors {
+        getColor(x, y) == Element ? matches++
+        getColor(x - delta, y - delta) == Element ? matches++
+        getColor(x, y - delta) == Element ? matches++
+        getColor(x + delta, y - delta) == Element ? matches++
+        getColor(x - delta, y) == Element ? matches++
+        getColor(x + delta, y) == Element ? matches++
+        getColor(x - delta, y + delta) == Element ? matches++
+        getColor(x, y + delta) == Element ? matches++
+        getColor(x + delta, y + delta) == Element ? matches++
+    }
+
+    MsgBox, %matches% [matches]
+    return matches
 }
 
 ; Get a text in active window of app and returns it.
@@ -954,7 +1187,7 @@ fixedAmountSupplyHyoro() {
         MouseGetPos, currentMouseXPos, currentMouseYPos
     }
     
-    WinGetText, strings, %appProcess% 
+    WinGetText, strings, %appProcess%
     supplyHyoroTexts := StrSplit(strings, "`r`n")
     increaseAmount := supplyHyoroTexts[3]
     currentAmount := supplyHyoroTexts[8]
@@ -1241,6 +1474,10 @@ XButton1::  ; Main action button.
             if (!isCustomManageCorpsFundsRunning) {
                 customManageCorpsFunds()
             }
+        case "野戦発生":
+            if (!isAfbRunning) {
+                afb.jindate(1)  ; The supreme commander will be selected from a smallest unit of the commander. 
+            }
         case "戦国史SE", "戦国史FE":
             phaseType := detectPhase()
 
@@ -1288,8 +1525,6 @@ XButton2::
 
 ; The following code is for the development and test.
 Home::
-    global appProcess
-
     WinGetText, strings, %appProcess%
     ;array := StrSplit(strings, "`n")
     MsgBox, %strings%
@@ -1306,12 +1541,48 @@ Delete::
     return
 
 Break::
-    ;fb.jindate(1)
-    ;fb.test()
-    ;fb.inputAction()
-    fb.engage(3)
+    ;colorArray := [0x000000, 0xFFFFFF]
+    ;colorArray := [0xFFFFFF]
+    ;compareColors(colorArray, 641, 91, 2)
+    ;afb.jindate(3)
+    ;afb.test()
+    ;afb.inputAction()
+    afb.engage(3)
     return
 
+
+
+Up::
+    afb.jindate(1)  ; 最少部隊総大将
+    ;afb.engage(1)  ; 通常釣り出し交戦
+    return
+
+Down::
+    afb.engage(1)  ; 通常釣り出し交戦
+    return
+
+Left::
+    txt := getWindowText(0)
+    MsgBox, %txt% [txt[0]]
+    return
+
+Numpad0::
+    afb.detectBattleArray(1)
+    return
+
+Numpad1::
+    afb.jindate(1)  ; 兵最少部隊総大将
+    afb.engage(1)  ; 釣り出し交戦
+    return
+
+Numpad3::
+    afb.jindate(3)  ; 指揮最大部隊総大将
+    afb.engage(3)  ; 通常交戦
+    return
+
+Numpad6::
+    afb.jindate(3)  ; 指揮最大部隊総大将
+    return
 
 isMainWindow() {
     WinGetTitle, windowTitle, %appProcess%
