@@ -318,8 +318,7 @@ afb := {}
 
 afb.generalListTop := 168
 afb.generalListRowHeight := 16
-
-
+afb.battleArray := []
 
 ;afb.listTop
 ;afb.honzinStringColorXPos := 263
@@ -332,7 +331,7 @@ afb.jindate := Func("_afbJindate")
 afb.engage := Func("_afbEngage")
 afb.judgeAction := Func("_afbJudgeAction")
 afb.inputAction := Func("_afbInputAction")
-afb.detectBattleArray := Func("_afbDetectBattleArray")
+afb.updateBattleArray := Func("_afbDetectBattleArray")
 
 
 
@@ -376,21 +375,27 @@ _afbJindate(this, commanderType) {
             MouseMove, 210, 160
             Sleep, sleepDurationTest1
             Click
-
-            While (!isBottom || counter < 21) {
+            
+            ;While (!isBottom || counter < 21) {
+            While (!isBottom) {
                 counter++
                 ;currentYPos := % this.generalListTop + this.generalListRowHeight
                 ;MsgBox, %currentYPos% [currentYPos]
 
                 color1 := getColor(100, this.generalListTop + this.generalListRowHeight * counter)
-                ;MsgBox, color1 [color1]
+                ;MsgBox, %color1% [color1]
 
                 if (color1 != lineColor) {
+                    isBottom := true
+                } else if (counter > 14) {
+                    MouseClick, WheelDown, , , 5
                     isBottom := true
                 }
             }
 
-            MouseMove, 210, % this.generalListTop + this.generalListRowHeight * (counter - 1)
+            ;MsgBox, %counter% [counter]
+
+            MouseMove, 210, % -7 + this.generalListTop + this.generalListRowHeight * (counter - 1)
             Sleep, 2000
             Click
             honzinStringColor := getColor(263, 483)
@@ -398,6 +403,9 @@ _afbJindate(this, commanderType) {
             if (honzinStringColor == grayOutColor) {
                 commanderType := 0
             }
+
+            ; test return
+            ;return
         
         case 2:  ; The commander having the biggest units.
         
@@ -514,7 +522,6 @@ _afbInputAction(this, actionType) {
             Sleep, sleepDurationTest1
             Click
         case 2:  ; Attack(攻撃).
-            ;MsgBox, 攻撃！
             MouseMove, %rightButtonXPos%, %attackYPos%
             Sleep, sleepDurationTest1
             Click
@@ -537,29 +544,144 @@ _afbInputAction(this, actionType) {
     }
 }
 
+; Battle array pos: 0-10(0 is not exist unit). Index 0-2: Friendly units pos. Index 3: Number of friendly units. Index 4: Friendly unit front pos.
+; Index 5-7: Enemy units pos. Index 8: Enemy unit front pos. Index 9: Number of enemy units. 
+; Index 10: Distance. Range 1-5. Index 11: Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 _afbDetectBattleArray(this, turn) {
+    global afb
     enemyColor :=
-    friendColor :=
-    checkColors := [0xFFFFFF]
-    battleArray := []  ; Index 0-2: Friendly array pos. Index 3-5: Enemy array pos. Index 6: Distance.
-    matches := 0
+    friendlyColor :=
+    pickedColor :=
+    enemyFrontPos :=
+    friendlyFrontPos :=
+    oldDistance := afb.battleArray[8]
+    oldEnemyUnits := afb.battleArray[7]
+    oldEnemyFrontPos :=
+    isExistUnit :=
 
-    switch turn {
-        case 1:
-            matches := compareColors(checkColors, 682, 83, 2)
-
-            if (matches) {
-                matches := compareColors(checkColors, 585, 101, 2)
-            }
-
-
-
+    if (afb.battleArray[4] == 0) {
+         oldEnemyFrontPos := afb.battleArray[5] == 0 ? afb.battleArray[6] : afb.battleArray[5]
+    } else {
+         oldEnemyFrontPos := afb.battleArray[4]
     }
 
+    if (turn == 1) {
+        pickedColor := getColor(743, 345)
+        
+        if (pickedColor == 0xFFFFFF) {
+            afb.battleArray[4] := 8
+            pickedColor := getColor(743, 447)
 
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[5] := 9
+                afb.battleArray[6] := 10
+            } else {
+                afb.battleArray[5] := 0
+                afb.battleArray[6] := 9
+            }
+        } else {
+            afb.battleArray[4] := 0
+            pickedColor := getColor(743, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[5] := 8
+                afb.battleArray[6] := 9
+            } else {
+                afb.battleArray[5] := 0
+                afb.battleArray[6] := 8
+            }
+        }
+
+        pickedColor := getColor(361, 343)
+
+        if (pickedColor == 0xFFFFFF) {
+            afb.battleArray[2] := 3
+            pickedColor := getColor(361, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[1] := 2
+                afb.battleArray[0] := 1
+            } else {
+                afb.battleArray[1] := 0
+                afb.battleArray[0] := 2
+            }
+        } else {
+            afb.battleArray[2] := 0
+            pickedColor := getColor(361, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[1] := 3
+                afb.battleArray[0] := 2
+            } else {
+                afb.battleArray[1] := 0
+                afb.battleArray[0] := 3
+            }
+        }
+    } else {
+        switch oldEnemyFrontPos {
+            case 8:
+                ;MsgBox, case8
+
+                if (isApproximateColor(0xFF7D5A, 20, 2, 571, 135, 2)) {  ; isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)
+                    pickedColor := getColor(743, 345)
+
+                    if (pickedColor == 0xFFFFFF) {
+                        afb.battleArray[4] := 7
+                        pickedColor := getColor(743, 447)
+
+                        if (pickedColor == 0xFFFFFF) {
+                            afb.battleArray[5] := 8
+                            afb.battleArray[6] := 9
+                        } else {
+                            afb.battleArray[5] := 0
+                            afb.battleArray[6] := 8
+                        }
+                    } else {
+                        afb.battleArray[4] := 0
+                        pickedColor := getColor(743, 447)
+
+                        if (pickedColor == 0xFFFFFF) {
+                            afb.battleArray[5] := 8
+                            afb.battleArray[6] := 9
+                        } else {
+                            afb.battleArray[5] := 0
+                            afb.battleArray[6] := 8
+                        }
+                    }
+                } else {
+
+                }
+                 
+        }
+
+        
+    }
+
+    friendlyFrontPos := Max(afb.battleArray[0], afb.battleArray[1], afb.battleArray[2])
+    enemyFrontPos := Max(afb.battleArray[4], afb.battleArray[5], afb.battleArray[6])
+
+    if (afb.battleArray[4] == 0) {
+        enemyFrontPos := afb.battleArray[5] == 0 ? afb.battleArray[6] : afb.battleArray[5]
+    } else {
+        enemyFrontPos := afb.battleArray[4]
+    }
+
+    afb.battleArray[8] := enemyFrontPos - friendlyFrontPos
+
+    if (afb.battleArray[8] < oldDistance) {
+        afb.battleArray[9] := 1    
+    } else {
+        if (oldEnemyUnits > afb.battleArray[7]) {
+            afb.battleArray[9] := 1
+        } else {
+            afb.battleArray[9] := 0
+        }
+    }
+
+    MsgBox, % afb.battleArray[0] " / " afb.battleArray[1] " / " afb.battleArray[2] " / " afb.battleArray[3] " / " afb.battleArray[4] " / " afb.battleArray[5] " / " afb.battleArray[6] " / " afb.battleArray[7] " / " afb.battleArray[8] " / " afb.battleArray[9]
 }
 
-_afbEngage(this, jindateType) {
+_afbEngage(this, tacticsType) {
     global sleepDuration1
     global sleepDuration2
     global sleepDuration3
@@ -567,7 +689,7 @@ _afbEngage(this, jindateType) {
     global grayOutColor
     global fontColor
     turn := 0
-    battleArray :=
+    battleArray := []
     checkColors := [0xFFFFFF]
 
     ;MsgBox, engage1ok
@@ -582,21 +704,21 @@ _afbEngage(this, jindateType) {
         sleep, sleepDuration2
 
         if (compareColors(fontColor, 183, 103, 2)) {
-            jindateType := 8  ; Surprise attack succeeded.
+            tacticsType := 8  ; Surprise attack succeeded.
         } else {
-            jindateType := 9
+            tacticsType := 9
         }
     }
 
     if (compareColors([fontColor], 183, 103, 2)) {
-        jindateType := 8  ; Surprise attack succeeded.
+        tacticsType := 8  ; Surprise attack succeeded.
     } else {
-        jindateType := 9
+        tacticsType := 9
     }
 
 
 
-    switch jindateType {
+    switch tacticsType {
         case 1:
             ;MsgBox, 通常釣り出し
 
@@ -610,14 +732,16 @@ _afbEngage(this, jindateType) {
                     ;MsgBox, End of battle.
                     break
                 }
-            }    
+            }
         case 2:
             ;MsgBox, 鉄砲釣り出し
         case 3:
             ;MsgBox, 通常会戦
+            
 
             for i, element in testActions3 {
                 turn++
+                afb.updateBattleArray(turn)
                 ;MsgBox, %i%
                 
 
@@ -630,11 +754,11 @@ _afbEngage(this, jindateType) {
                 }
             }            
         case 8:  ; Surprise attack succeeded.
-            for i, element in testActions3 {
+            for i, element in testActions8 {
                 turn++
                 ;MsgBox, %i%
                 this.inputAction(this.judgeAction(element))
-                Sleep, % sleepDuration8
+                Sleep, % sleepDuration3
 
                 if (getWindowText(1) == "OK") {
                     ;MsgBox, End of battle.
@@ -805,37 +929,152 @@ getPrefix() {
 }
 
 getColor(x, y) {
-    PixelGetColor, Color, x, y, RGB Alt
+    PixelGetColor, Color, x, y, Alt RGB
     return Color
 }
 
+/*
+ * @function
+ * @param {number} hexColor Required. Hexadecimal color code.
+ * @param {string} rgbType Required. `r`, `g`, `b` or `rgb`.
+ * @returns {number|Array} Returns an integer with specific color code or array contained RGB color code.
+ */
+hexToRgb(hexColor, rgbType) {
+    switch rgbType {
+        case "r":
+            StringMid, red, hexColor, 3, 2
+            red := "0x" . red
+            return red + 0
+        case "g":
+            StringMid, green, hexColor, 5, 2
+            green := "0x" . green
+            return green + 0
+        case "b":
+            StringMid, blue, hexColor, 7, 2
+            blue := "0x" . blue
+            return blue + 0
+        case "rgb":
+            array := []
+            StringMid, red, hexColor, 3, 2
+            StringMid, green, hexColor, 5, 2
+            StringMid, blue, hexColor, 7, 2
+            red := "0x" . red
+            green := "0x" . green
+            blue := "0x" . blue
+            array[0] := red + 0
+            array[1] := green + 0
+            array[2] := blue + 0
+            return array
+    }    
+}
 
 /*
  * @function
- * @param {Array} colors Required.
- * @param {number} x Required.
- * @param {number} y Required.
- * @param {number} delta Required.
+ * @param {Array} colors Required. Integer.
+ * @param {number} x Required. Integer.
+ * @param {number} y Required. Integer.
+ * @param {number} delta Optional. Integer.
  * @returns {number} Returns are number of matched colors.
  */
 compareColors(colors, x, y, delta) {
     matches := 0
 
-    for i, Element in colors {
-        getColor(x, y) == Element ? matches++
-        getColor(x - delta, y - delta) == Element ? matches++
-        getColor(x, y - delta) == Element ? matches++
-        getColor(x + delta, y - delta) == Element ? matches++
-        getColor(x - delta, y) == Element ? matches++
-        getColor(x + delta, y) == Element ? matches++
-        getColor(x - delta, y + delta) == Element ? matches++
-        getColor(x, y + delta) == Element ? matches++
-        getColor(x + delta, y + delta) == Element ? matches++
+    if (delta) {
+        for i, Element in colors {
+            getColor(x, y) == Element ? matches++
+            getColor(x - delta, y - delta) == Element ? matches++
+            getColor(x, y - delta) == Element ? matches++
+            getColor(x + delta, y - delta) == Element ? matches++
+            getColor(x - delta, y) == Element ? matches++
+            getColor(x + delta, y) == Element ? matches++
+            getColor(x - delta, y + delta) == Element ? matches++
+            getColor(x, y + delta) == Element ? matches++
+            getColor(x + delta, y + delta) == Element ? matches++
+        }
+    } else {
+        for i, Element in colors {
+            getColor(x, y) == Element ? matches++
+        }
     }
 
-    MsgBox, %matches% [matches]
+    ;MsgBox, %matches% [matches]
     return matches
 }
+
+/*
+ * @function
+ * @param {number} hexColor1 Required.
+ * @param {number} hexColor2 Required.
+ * @returns {number} Returns a color difference with percentage.
+ */
+calcAverageOfColorDifference(hexColor1, hexColor2) {
+    rgbColor1 := hexToRgb(hexColor1, "rgb")
+    rgbColor2 := hexToRgb(hexColor2, "rgb")
+    diffR := Abs(rgbColor1[0] - rgbColor2[0])
+    ;MsgBox, % diffR
+    diffG := Abs(rgbColor1[1] - rgbColor2[1])
+    diffB := Abs(rgbColor1[2] - rgbColor2[2])
+    pctDiffR := diffR / 255
+    pctDiffG := diffG / 255
+    pctDiffB := diffB / 255
+    return (pctDiffR + pctDiffG + pctDiffB) / 3 * 100
+}
+
+/*
+ * @function
+ * @param {number} hexColor Required.
+ * @param {number} allowance Required. Integer.
+ * @param {number} completion. Required. Integer.
+ * @param {number} x Required. Integer.
+ * @param {number} y Required. Integer.
+ * @param {number} delta Optional. Integer.
+ * @returns {boolean} Returns true if picked colores has passed the criteria of approximate color, else false.
+ */
+isApproximateColor(hexColor, allowance, completion, x, y, delta) {
+    passes := 0
+    colorDifferences := []
+
+    if (delta) {
+        colorDifferences[0] := calcAverageOfColorDifference(hexColor, getColor(x, y))
+        colorDifferences[1] := calcAverageOfColorDifference(hexColor, getColor(x - delta, y - delta))
+        colorDifferences[2] := calcAverageOfColorDifference(hexColor, getColor(x, y - delta))
+        colorDifferences[3] := calcAverageOfColorDifference(hexColor, getColor(x + delta, y - delta))
+        colorDifferences[4] := calcAverageOfColorDifference(hexColor, getColor(x - delta, y))
+        colorDifferences[5] := calcAverageOfColorDifference(hexColor, getColor(x + delta, y))
+        colorDifferences[6] := calcAverageOfColorDifference(hexColor, getColor(x - delta, y + delta))
+        colorDifferences[7] := calcAverageOfColorDifference(hexColor, getColor(x, y + delta))
+        colorDifferences[8] := calcAverageOfColorDifference(hexColor, getColor(x + delta, y + delta))
+        
+        ;MsgBox, % colorDifferences[0]
+
+        for i, Element in colorDifferences {
+            if (Element < allowance) {
+                passes++
+
+                if (passes == completion) {
+                    ;MsgBox, %passes% [passes]
+                    return true
+                }
+            }
+        }
+
+        return false
+    } else {
+        colorDifferences[0] := calcAverageOfColorDifference(hexColor, getColor(x, y))
+
+        if (colorDifferences[0] < allowance) {
+            return true
+        } else {
+            return false
+        }
+    }
+}
+
+; isApproximateColor(0xFFFFFF, 100, 1, 200, 350, 2)
+
+
+
+
 
 ; Get a text in active window of app and returns it.
 getWindowText(index) {
@@ -1550,24 +1789,34 @@ Break::
     afb.engage(3)
     return
 
-
+BackSpace::
+    ;isRgbApproximateColor(100, "r", 255, 100, 1, 600, 600, 0)
+    return
 
 Up::
-    afb.jindate(1)  ; 最少部隊総大将
+    ;colorDiff1 := calcAverageOfColorDifference(0x000000, 0xFFFFFF)
+    colorDiff1 := calcAverageOfColorDifference(0xE5E5D9, 0xFFFFFF)
+    MsgBox, %colorDiff1%
+    ;afb.jindate(1)  ; 最少部隊総大将
     ;afb.engage(1)  ; 通常釣り出し交戦
     return
 
 Down::
-    afb.engage(1)  ; 通常釣り出し交戦
+    MouseMove, 629, 118
+    v := isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)  ; isApproximateColor(hexColor, allowance, completion, x, y, delta)
+    MsgBox, %v%
+    ;afb.engage(1)  ; 通常釣り出し交戦
     return
 
 Left::
-    txt := getWindowText(0)
-    MsgBox, %txt% [txt[0]]
+    afb.updateBattleArray(1)
+    Sleep, 1000
+    afb.updateBattleArray(2)
+    ;MsgBox, % battleArray[0] " / " battleArray[1] " / " battleArray[2] " / " battleArray[3] " / " battleArray[4] " / " battleArray[5] " / " battleArray[6] " / " battleArray[7] " / " battleArray[8] " / " battleArray[9]
     return
 
-Numpad0::
-    afb.detectBattleArray(1)
+1::
+    afb.updateBattleArray(1)
     return
 
 Numpad1::
@@ -1578,6 +1827,10 @@ Numpad1::
 Numpad3::
     afb.jindate(3)  ; 指揮最大部隊総大将
     afb.engage(3)  ; 通常交戦
+    return
+
+Numpad4::
+    afb.jindate(1)  ; 指揮最大部隊総大将
     return
 
 Numpad6::
