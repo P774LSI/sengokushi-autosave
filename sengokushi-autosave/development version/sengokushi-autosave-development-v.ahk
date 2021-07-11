@@ -319,6 +319,7 @@ afb := {}
 afb.generalListTop := 168
 afb.generalListRowHeight := 16
 afb.battleArray := []
+afb.battleArray[9] := 8  ; Default an enemy first unit position without the surprise attack.
 
 ;afb.listTop
 ;afb.honzinStringColorXPos := 263
@@ -549,7 +550,7 @@ _afbInputAction(this, actionType) {
 ; Index 10: Distance. Range 1-5. Index 11: Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 _afbDetectBattleArray(this, turn) {
     global afb
-    enemyColor :=
+    enemyColor := 0xFF7D5A
     friendlyColor :=
     pickedColor :=
     enemyFrontPos :=
@@ -558,7 +559,131 @@ _afbDetectBattleArray(this, turn) {
     oldEnemyFrontPos := afb.battleArray[9]
     oldDistance := afb.battleArray[10]
     isExistUnit :=
+    checkColorXPos :=
+    checkColorYPos :=
+    checkColorXPosList := []
+    checkColorYPosList := []
+    checkColorXPosList[2] := 334
+    checkColorXPosList[3] := 382
+    checkColorXPosList[4] := 433
+    checkColorXPosList[5] := 481
+    checkColorXPosList[6] := 531
+    checkColorXPosList[7] := 580
+    checkColorXPosList[8] := 629
+    checkColorYPosList[2] := 179
+    checkColorYPosList[3] := 169
+    checkColorYPosList[4] := 158
+    checkColorYPosList[5] := 148
+    checkColorYPosList[6] := 138
+    checkColorYPosList[7] := 127
+    checkColorYPosList[8] := 117
+    /*
+    switch oldEnemyFrontPos {
+        case 3:
+            checkColorXPos := 334
+            checkColorYPos := 179
+        case 4:
+            checkColorXPos := 382
+            checkColorYPos := 169
+        case 5:
+            checkColorXPos := 433
+            checkColorYPos := 158
+        case 6:
+            checkColorXPos := 481
+            checkColorYPos := 148
+        case 7:
+            checkColorXPos := 531
+            checkColorYPos := 138
+        case 8:
+            checkColorXPos := 580
+            checkColorYPos := 127
+    }
+    */
 
+    MsgBox, %oldEnemyFrontPos% [oldEnemyFrontPos]
+
+
+    if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos - 1], checkColorYPosList[oldEnemyFrontPos - 1], 2)) {
+        pickedColor := getColor(743, 345)
+        ;afb.battleArray[9] := % oldEnemyFrontPos - 1
+        afb.battleArray[11] := 1  ;  Presumption action.
+
+        if (pickedColor == 0xFFFFFF) {
+            afb.battleArray[5] := oldEnemyFrontPos - 1
+            pickedColor := getColor(743, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[6] := oldEnemyFrontPos
+                afb.battleArray[7] := oldEnemyFrontPos + 1
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := oldEnemyFrontPos
+            }
+        } else {
+            afb.battleArray[5] := 0
+            pickedColor := getColor(743, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[6] := oldEnemyFrontPos
+                afb.battleArray[7] := oldEnemyFrontPos + 1
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := oldEnemyFrontPos
+            }
+        }
+    } else if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos], 2)) {
+        pickedColor := getColor(743, 345)
+        afb.battleArray[9] := oldEnemyFrontPos
+        afb.battleArray[11] := 0
+
+        if (pickedColor == 0xFFFFFF) {
+            afb.battleArray[5] := oldEnemyFrontPos
+            pickedColor := getColor(743, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[6] := oldEnemyFrontPos + 1
+                afb.battleArray[7] := oldEnemyFrontPos + 2
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := oldEnemyFrontPos + 1
+            }
+        } else {
+            afb.battleArray[5] := 0
+            pickedColor := getColor(743, 447)
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[6] := oldEnemyFrontPos + 1
+                afb.battleArray[7] := oldEnemyFrontPos + 2
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := oldEnemyFrontPos + 1
+            }
+        }
+    } else {
+        pickedColor := getColor(743, 345)
+        afb.battleArray[9] := oldEnemyFrontPos + 1
+        afb.battleArray[11] := 0
+
+        if (pickedColor == 0xFFFFFF) {
+            afb.battleArray[5] := oldEnemyFrontPos + 1
+            afb.battleArray[6] := 0
+            afb.battleArray[7] := oldEnemyFrontPos + 2
+        } else {
+            pickedColor := getColor(743, 447)
+            afb.battleArray[5] := 0
+
+            if (pickedColor == 0xFFFFFF) {
+                afb.battleArray[6] := oldEnemyFrontPos + 1
+                afb.battleArray[7] := oldEnemyFrontPos + 2
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := oldEnemyFrontPos + 2
+            }
+        }               
+    }
+
+
+    /*
     if (turn == 1) {
         pickedColor := getColor(743, 345)
         
@@ -701,6 +826,7 @@ _afbDetectBattleArray(this, turn) {
 
         
     }
+    */
 
     friendlyFrontPos := Max(afb.battleArray[0], afb.battleArray[1], afb.battleArray[2])
 
@@ -722,7 +848,9 @@ _afbDetectBattleArray(this, turn) {
         }
     }
 
-    MsgBox, % afb.battleArray[0] " / " afb.battleArray[1] " / " afb.battleArray[2] " / " afb.battleArray[3] " / " afb.battleArray[4] " / " afb.battleArray[5] " / " afb.battleArray[6] " / " afb.battleArray[7] " / " afb.battleArray[8] " / " afb.battleArray[9]
+
+    MsgBox, % (afb.battleArray[0] " / " afb.battleArray[1] " / " afb.battleArray[2] " / " afb.battleArray[3] " / " afb.battleArray[4] " / " afb.battleArray[5] " / " afb.battleArray[6] " / " afb.battleArray[7] " / " afb.battleArray[8] " / " afb.battleArray[9] " / " afb.battleArray[10] " / " afb.battleArray[11])
+
 }
 
 _afbEngage(this, tacticsType) {
@@ -1856,7 +1984,6 @@ Left::
     afb.updateBattleArray(1)
     Sleep, 1000
     afb.updateBattleArray(2)
-    ;MsgBox, % battleArray[0] " / " battleArray[1] " / " battleArray[2] " / " battleArray[3] " / " battleArray[4] " / " battleArray[5] " / " battleArray[6] " / " battleArray[7] " / " battleArray[8] " / " battleArray[9]
     return
 
 1::
