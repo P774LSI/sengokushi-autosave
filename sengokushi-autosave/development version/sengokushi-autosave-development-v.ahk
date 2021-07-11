@@ -545,7 +545,7 @@ _afbInputAction(this, actionType) {
 }
 
 ; Battle array pos: 0-10(0 is not exist unit). Index 0-2: Friendly units pos. Index 3: Number of friendly units. Index 4: Friendly unit front pos.
-; Index 5-7: Enemy units pos. Index 8: Enemy unit front pos. Index 9: Number of enemy units. 
+; Index 5-7: Enemy units pos. Index 8: Number of enemy units. Index 9: Enemy unit front pos. 
 ; Index 10: Distance. Range 1-5. Index 11: Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 _afbDetectBattleArray(this, turn) {
     global afb
@@ -554,41 +554,35 @@ _afbDetectBattleArray(this, turn) {
     pickedColor :=
     enemyFrontPos :=
     friendlyFrontPos :=
-    oldDistance := afb.battleArray[8]
-    oldEnemyUnits := afb.battleArray[7]
-    oldEnemyFrontPos :=
+    oldEnemyUnits := afb.battleArray[8]
+    oldEnemyFrontPos := afb.battleArray[9]
+    oldDistance := afb.battleArray[10]
     isExistUnit :=
-
-    if (afb.battleArray[4] == 0) {
-         oldEnemyFrontPos := afb.battleArray[5] == 0 ? afb.battleArray[6] : afb.battleArray[5]
-    } else {
-         oldEnemyFrontPos := afb.battleArray[4]
-    }
 
     if (turn == 1) {
         pickedColor := getColor(743, 345)
         
         if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[4] := 8
+            afb.battleArray[5] := 8  ; Front unit pos.
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[5] := 9
-                afb.battleArray[6] := 10
-            } else {
-                afb.battleArray[5] := 0
                 afb.battleArray[6] := 9
+                afb.battleArray[7] := 10
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := 9
             }
         } else {
-            afb.battleArray[4] := 0
+            afb.battleArray[5] := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[5] := 8
-                afb.battleArray[6] := 9
-            } else {
-                afb.battleArray[5] := 0
                 afb.battleArray[6] := 8
+                afb.battleArray[7] := 9
+            } else {
+                afb.battleArray[6] := 0
+                afb.battleArray[7] := 8
             }
         }
 
@@ -621,35 +615,86 @@ _afbDetectBattleArray(this, turn) {
         switch oldEnemyFrontPos {
             case 8:
                 ;MsgBox, case8
+                ; isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)
 
-                if (isApproximateColor(0xFF7D5A, 20, 2, 571, 135, 2)) {  ; isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)
+
+                if (isApproximateColor(0xFF7D5A, 20, 2, 571, 135, 2)) {  ; Pos 7.
                     pickedColor := getColor(743, 345)
+                    afb.battleArray[9] := 7
+                    afb.battleArray[11] := 1
 
                     if (pickedColor == 0xFFFFFF) {
-                        afb.battleArray[4] := 7
+                        afb.battleArray[5] := 7
                         pickedColor := getColor(743, 447)
 
                         if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[5] := 8
-                            afb.battleArray[6] := 9
-                        } else {
-                            afb.battleArray[5] := 0
                             afb.battleArray[6] := 8
+                            afb.battleArray[7] := 9
+                        } else {
+                            afb.battleArray[6] := 0
+                            afb.battleArray[7] := 8
                         }
                     } else {
-                        afb.battleArray[4] := 0
+                        afb.battleArray[5] := 0
                         pickedColor := getColor(743, 447)
 
                         if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[5] := 8
-                            afb.battleArray[6] := 9
-                        } else {
-                            afb.battleArray[5] := 0
                             afb.battleArray[6] := 8
+                            afb.battleArray[7] := 9
+                        } else {
+                            afb.battleArray[6] := 0
+                            afb.battleArray[7] := 8
+                        }
+                    }
+                } else if (isApproximateColor(0xFF7D5A, 20, 2, 631, 118, 2)) {  ; Pos 8.
+                    pickedColor := getColor(743, 345)
+                    afb.battleArray[9] := 8
+                    afb.battleArray[11] := 0
+
+                    if (pickedColor == 0xFFFFFF) {
+                        afb.battleArray[5] := 8
+                        pickedColor := getColor(743, 447)
+
+                        if (pickedColor == 0xFFFFFF) {
+                            afb.battleArray[6] := 9
+                            afb.battleArray[7] := 10
+                        } else {
+                            afb.battleArray[6] := 0
+                            afb.battleArray[7] := 9
+                        }
+                    } else {
+                        afb.battleArray[5] := 0
+                        pickedColor := getColor(743, 447)
+
+                        if (pickedColor == 0xFFFFFF) {
+                            afb.battleArray[6] := 9
+                            afb.battleArray[7] := 10
+                        } else {
+                            afb.battleArray[6] := 0
+                            afb.battleArray[7] := 9
                         }
                     }
                 } else {
+                    pickedColor := getColor(743, 345)
+                    afb.battleArray[9] := 9
+                    afb.battleArray[11] := 0
 
+                    if (pickedColor == 0xFFFFFF) {
+                        afb.battleArray[5] := 9
+                        afb.battleArray[6] := 0
+                        afb.battleArray[7] := 10
+                    } else {
+                        pickedColor := getColor(743, 447)
+                        afb.battleArray[5] := 0
+
+                        if (pickedColor == 0xFFFFFF) {
+                            afb.battleArray[6] := 9
+                            afb.battleArray[7] := 10
+                        } else {
+                            afb.battleArray[6] := 0
+                            afb.battleArray[7] := 10
+                        }
+                    }               
                 }
                  
         }
@@ -658,23 +703,22 @@ _afbDetectBattleArray(this, turn) {
     }
 
     friendlyFrontPos := Max(afb.battleArray[0], afb.battleArray[1], afb.battleArray[2])
-    enemyFrontPos := Max(afb.battleArray[4], afb.battleArray[5], afb.battleArray[6])
 
-    if (afb.battleArray[4] == 0) {
-        enemyFrontPos := afb.battleArray[5] == 0 ? afb.battleArray[6] : afb.battleArray[5]
+    if (afb.battleArray[5] == 0) {
+         enemyFrontPos := afb.battleArray[6] == 0 ? afb.battleArray[7] : afb.battleArray[6]
     } else {
-        enemyFrontPos := afb.battleArray[4]
+         enemyFrontPos := afb.battleArray[5]
     }
 
-    afb.battleArray[8] := enemyFrontPos - friendlyFrontPos
+    afb.battleArray[10] := enemyFrontPos - friendlyFrontPos  ; Calc the distance.
 
-    if (afb.battleArray[8] < oldDistance) {
-        afb.battleArray[9] := 1    
+    if (afb.battleArray[10] < oldDistance) {
+        afb.battleArray[11] := 1    
     } else {
         if (oldEnemyUnits > afb.battleArray[7]) {
-            afb.battleArray[9] := 1
+            afb.battleArray[10] := 1
         } else {
-            afb.battleArray[9] := 0
+            afb.battleArray[11] := 0
         }
     }
 
