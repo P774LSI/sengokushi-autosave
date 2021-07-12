@@ -229,7 +229,7 @@ sleepDuration1 := 50
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
 
-sleepDuration3 := 1500
+sleepDuration3 := 300
 
 
 
@@ -272,7 +272,7 @@ isAssistDomesticAffairsRunning := false
 isAfbRunning := false
 
 ; test
-sleepDurationTest1 := 1000
+sleepDurationTest1 := 500
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -318,8 +318,18 @@ afb := {}
 
 afb.generalListTop := 168
 afb.generalListRowHeight := 16
-afb.battleArray := []
-afb.battleArray[9] := 8  ; Default an enemy first unit position without the surprise attack.
+
+afb.friendlyBattleArray := []
+afb.enemyBattleArray := []  ; Index 0: The first unit. Index 1: The second unit. Index 2: Headquarters.
+afb.friendlyUnits :=  ; Number of friendly units.
+afb.enemyUnits :=  ; Number of enemy units.
+afb.friendlyUnitFrontPos :=
+afb.enemyUnitFrontPos :=  ; Default an enemy first unit position.
+afb.arrayDistance :=  ; Range 1-5.
+afb.enemyTookPresumptionAction :=  ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
+
+
+
 
 ;afb.listTop
 ;afb.honzinStringColorXPos := 263
@@ -332,7 +342,7 @@ afb.jindate := Func("_afbJindate")
 afb.engage := Func("_afbEngage")
 afb.judgeAction := Func("_afbJudgeAction")
 afb.inputAction := Func("_afbInputAction")
-afb.updateBattleArray := Func("_afbDetectBattleArray")
+afb.updateBattleArray := Func("_afbUpdateBattleArray")
 
 
 
@@ -348,27 +358,20 @@ _afbJindate(this, commanderType) {
     color1 :=
     counter := 0
     currentYPos :=
-    ;MsgBox, %honzinStringColor%
     isAfbRunning := true
 
-/*`
-    if (honzinStringColor == grayOutColor) {
-        ;MsgBox, 総大将決定済
-        commanderType := 0
-    }
-*/
 
-    isAfbRunning := true
-/*
-    if (getWindowText(1) == "OK") {
-        Send {Enter}  ; Skip `OK`.
-    }
-*/
     WinGetTitle, windowTitle, %appProcess%
 
     if (windowTitle != "野戦発生") {
         isAfbRunning := false
         return
+    }
+
+    color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
+
+    if (color1 != lineColor) {
+        commanderType := 0  ; Only supreme commander.
     }
 
     switch commanderType {
@@ -411,7 +414,7 @@ _afbJindate(this, commanderType) {
         case 2:  ; The commander having the biggest units.
         
         case 3:  ; The commander having a highest leadership ability with the field battle.
-            MsgBox, case3
+            ;MsgBox, case3
             MouseMove, 353, 160
             Sleep, sleepDurationTest1
             Click  ; Click a column header to ordered the list by the leadership ability.
@@ -433,24 +436,36 @@ _afbJindate(this, commanderType) {
         MouseMove, 290, 485  ; Hover the cursor on the `Honjin(本陣)` button.
         Sleep, sleepDurationTest1
         Click
-        Sleep, sleepDurationTest1
+        
+        color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
+
+        if (color1 != lineColor) {
+            MouseMove, 772, 20
+            Sleep, sleepDurationTest1
+            Click
+        } else {
+            ; Set all the general to the first group.
+            MouseMove, 110, % this.generalListTop + 8
+            Sleep, sleepDurationTest1
+            MouseClickDrag, LEFT, 0, 0, 0, 500, 5, R
+            Sleep, sleepDurationTest1
+            MouseMove, 110, 485
+            Sleep, sleepDurationTest1
+            Click
+            Sleep, sleepDurationTest1
+            MouseMove, 772, 20
+            Sleep, sleepDurationTest1
+            Click
+        }
     } else {
         Click
         Sleep, sleepDuration2
+        MouseMove, 772, 20
+        Sleep, sleepDurationTest1
+        Click
     }
 
-    ; Set all the general to the first group.
-    MouseMove, 110, % this.generalListTop + 8
-    Sleep, sleepDurationTest1
-    MouseClickDrag, LEFT, 0, 0, 0, 500, 5, R
-    Sleep, sleepDurationTest1
-    MouseMove, 110, 485
-    Sleep, sleepDurationTest1
-    Click
-    Sleep, sleepDurationTest1
-    MouseMove, 772, 20
-    Sleep, sleepDurationTest1
-    Click
+
 }
 
 _afbJudgeAction(this, actionType) {
@@ -545,19 +560,16 @@ _afbInputAction(this, actionType) {
     }
 }
 
-; Battle array pos: 0-10(0 is not exist unit). Index 0-2: Friendly units pos. Index 3: Number of friendly units. Index 4: Friendly unit front pos.
-; Index 5-7: Enemy units pos. Index 8: Number of enemy units. Index 9: Enemy unit front pos. 
-; Index 10: Distance. Range 1-5. Index 11: Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
-_afbDetectBattleArray(this, turn) {
+_afbUpdateBattleArray(this, turn) {
     global afb
     enemyColor := 0xFF7D5A
     friendlyColor :=
     pickedColor :=
     enemyFrontPos :=
     friendlyFrontPos :=
-    oldEnemyUnits := afb.battleArray[8]
-    oldEnemyFrontPos := afb.battleArray[9]
-    oldDistance := afb.battleArray[10]
+    oldEnemyUnits := afb.enemyUnits
+    oldEnemyFrontPos := afb.enemyUnitFrontPos
+    oldDistance := afb.arrayDistance
     isExistUnit :=
     checkColorXPos :=
     checkColorYPos :=
@@ -577,283 +589,112 @@ _afbDetectBattleArray(this, turn) {
     checkColorYPosList[6] := 138
     checkColorYPosList[7] := 127
     checkColorYPosList[8] := 117
-    /*
-    switch oldEnemyFrontPos {
-        case 3:
-            checkColorXPos := 334
-            checkColorYPos := 179
-        case 4:
-            checkColorXPos := 382
-            checkColorYPos := 169
-        case 5:
-            checkColorXPos := 433
-            checkColorYPos := 158
-        case 6:
-            checkColorXPos := 481
-            checkColorYPos := 148
-        case 7:
-            checkColorXPos := 531
-            checkColorYPos := 138
-        case 8:
-            checkColorXPos := 580
-            checkColorYPos := 127
-    }
-    */
 
-    MsgBox, %oldEnemyFrontPos% [oldEnemyFrontPos]
+    ;MsgBox, %oldEnemyFrontPos% [oldEnemyFrontPos]
 
 
     if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos - 1], checkColorYPosList[oldEnemyFrontPos - 1], 2)) {
         pickedColor := getColor(743, 345)
-        ;afb.battleArray[9] := % oldEnemyFrontPos - 1
-        afb.battleArray[11] := 1  ;  Presumption action.
+        afb.enemyUnitFrontPos := oldEnemyFrontPos - 1
+        afb.enemyTookPresumptionAction := 1  ;  Presumption action.
 
         if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[5] := oldEnemyFrontPos - 1
+            afb.enemyBattleArray[0] := oldEnemyFrontPos - 1
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := oldEnemyFrontPos
-                afb.battleArray[7] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[1] := oldEnemyFrontPos
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
             } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := oldEnemyFrontPos
+                afb.enemyBattleArray[1] := 0
+                afb.enemyBattleArray[2] := oldEnemyFrontPos
             }
         } else {
-            afb.battleArray[5] := 0
+            afb.enemyBattleArray[0] := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := oldEnemyFrontPos
-                afb.battleArray[7] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[1] := oldEnemyFrontPos
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
             } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := oldEnemyFrontPos
+                afb.enemyBattleArray[1] := 0
+                afb.enemyBattleArray[2] := oldEnemyFrontPos
             }
         }
     } else if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos], 2)) {
         pickedColor := getColor(743, 345)
-        afb.battleArray[9] := oldEnemyFrontPos
-        afb.battleArray[11] := 0
+        afb.enemyUnitFrontPos := oldEnemyFrontPos
+        afb.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[5] := oldEnemyFrontPos
+            afb.enemyBattleArray[0] := oldEnemyFrontPos
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := oldEnemyFrontPos + 1
-                afb.battleArray[7] := oldEnemyFrontPos + 2
+                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[1] := 0
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
             }
         } else {
-            afb.battleArray[5] := 0
+            afb.enemyBattleArray[0] := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := oldEnemyFrontPos + 1
-                afb.battleArray[7] := oldEnemyFrontPos + 2
+                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[1] := 0
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
             }
         }
     } else {
         pickedColor := getColor(743, 345)
-        afb.battleArray[9] := oldEnemyFrontPos + 1
-        afb.battleArray[11] := 0
+        afb.enemyUnitFrontPos := oldEnemyFrontPos + 1
+        afb.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[5] := oldEnemyFrontPos + 1
-            afb.battleArray[6] := 0
-            afb.battleArray[7] := oldEnemyFrontPos + 2
+            afb.enemyBattleArray[0] := oldEnemyFrontPos + 1
+            afb.enemyBattleArray[1] := 0
+            afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
         } else {
             pickedColor := getColor(743, 447)
-            afb.battleArray[5] := 0
+            afb.enemyBattleArray[0] := 0
 
             if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := oldEnemyFrontPos + 1
-                afb.battleArray[7] := oldEnemyFrontPos + 2
+                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := oldEnemyFrontPos + 2
+                afb.enemyBattleArray[1] := 0
+                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
             }
         }               
     }
 
 
-    /*
-    if (turn == 1) {
-        pickedColor := getColor(743, 345)
-        
-        if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[5] := 8  ; Front unit pos.
-            pickedColor := getColor(743, 447)
 
-            if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := 9
-                afb.battleArray[7] := 10
-            } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := 9
-            }
-        } else {
-            afb.battleArray[5] := 0
-            pickedColor := getColor(743, 447)
+    afb.friendlyUnitFrontPos := Max(afb.friendlyBattleArray[0], afb.friendlyBattleArray[1], afb.friendlyBattleArray[2])
+    afb.arrayDistance := afb.enemyUnitFrontPos - afb.friendlyUnitFrontPos  ; Calc the distance.
 
-            if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[6] := 8
-                afb.battleArray[7] := 9
-            } else {
-                afb.battleArray[6] := 0
-                afb.battleArray[7] := 8
-            }
-        }
-
-        pickedColor := getColor(361, 343)
-
-        if (pickedColor == 0xFFFFFF) {
-            afb.battleArray[2] := 3
-            pickedColor := getColor(361, 447)
-
-            if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[1] := 2
-                afb.battleArray[0] := 1
-            } else {
-                afb.battleArray[1] := 0
-                afb.battleArray[0] := 2
-            }
-        } else {
-            afb.battleArray[2] := 0
-            pickedColor := getColor(361, 447)
-
-            if (pickedColor == 0xFFFFFF) {
-                afb.battleArray[1] := 3
-                afb.battleArray[0] := 2
-            } else {
-                afb.battleArray[1] := 0
-                afb.battleArray[0] := 3
-            }
-        }
+    if (afb.arrayDistance < oldDistance) {
+        afb.enemyTookPresumptionAction := 1    
     } else {
-        switch oldEnemyFrontPos {
-            case 8:
-                ;MsgBox, case8
-                ; isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)
-
-
-                if (isApproximateColor(0xFF7D5A, 20, 2, 571, 135, 2)) {  ; Pos 7.
-                    pickedColor := getColor(743, 345)
-                    afb.battleArray[9] := 7
-                    afb.battleArray[11] := 1
-
-                    if (pickedColor == 0xFFFFFF) {
-                        afb.battleArray[5] := 7
-                        pickedColor := getColor(743, 447)
-
-                        if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[6] := 8
-                            afb.battleArray[7] := 9
-                        } else {
-                            afb.battleArray[6] := 0
-                            afb.battleArray[7] := 8
-                        }
-                    } else {
-                        afb.battleArray[5] := 0
-                        pickedColor := getColor(743, 447)
-
-                        if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[6] := 8
-                            afb.battleArray[7] := 9
-                        } else {
-                            afb.battleArray[6] := 0
-                            afb.battleArray[7] := 8
-                        }
-                    }
-                } else if (isApproximateColor(0xFF7D5A, 20, 2, 631, 118, 2)) {  ; Pos 8.
-                    pickedColor := getColor(743, 345)
-                    afb.battleArray[9] := 8
-                    afb.battleArray[11] := 0
-
-                    if (pickedColor == 0xFFFFFF) {
-                        afb.battleArray[5] := 8
-                        pickedColor := getColor(743, 447)
-
-                        if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[6] := 9
-                            afb.battleArray[7] := 10
-                        } else {
-                            afb.battleArray[6] := 0
-                            afb.battleArray[7] := 9
-                        }
-                    } else {
-                        afb.battleArray[5] := 0
-                        pickedColor := getColor(743, 447)
-
-                        if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[6] := 9
-                            afb.battleArray[7] := 10
-                        } else {
-                            afb.battleArray[6] := 0
-                            afb.battleArray[7] := 9
-                        }
-                    }
-                } else {
-                    pickedColor := getColor(743, 345)
-                    afb.battleArray[9] := 9
-                    afb.battleArray[11] := 0
-
-                    if (pickedColor == 0xFFFFFF) {
-                        afb.battleArray[5] := 9
-                        afb.battleArray[6] := 0
-                        afb.battleArray[7] := 10
-                    } else {
-                        pickedColor := getColor(743, 447)
-                        afb.battleArray[5] := 0
-
-                        if (pickedColor == 0xFFFFFF) {
-                            afb.battleArray[6] := 9
-                            afb.battleArray[7] := 10
-                        } else {
-                            afb.battleArray[6] := 0
-                            afb.battleArray[7] := 10
-                        }
-                    }               
-                }
-                 
-        }
-
-        
-    }
-    */
-
-    friendlyFrontPos := Max(afb.battleArray[0], afb.battleArray[1], afb.battleArray[2])
-
-    if (afb.battleArray[5] == 0) {
-         enemyFrontPos := afb.battleArray[6] == 0 ? afb.battleArray[7] : afb.battleArray[6]
-    } else {
-         enemyFrontPos := afb.battleArray[5]
-    }
-
-    afb.battleArray[10] := enemyFrontPos - friendlyFrontPos  ; Calc the distance.
-
-    if (afb.battleArray[10] < oldDistance) {
-        afb.battleArray[11] := 1    
-    } else {
-        if (oldEnemyUnits > afb.battleArray[7]) {
-            afb.battleArray[10] := 1
+        if (oldEnemyUnits > afb.enemyUnits) {
+            afb.enemyTookPresumptionAction := 1
         } else {
-            afb.battleArray[11] := 0
+            afb.enemyTookPresumptionAction := 0
         }
     }
 
 
-    MsgBox, % (afb.battleArray[0] " / " afb.battleArray[1] " / " afb.battleArray[2] " / " afb.battleArray[3] " / " afb.battleArray[4] " / " afb.battleArray[5] " / " afb.battleArray[6] " / " afb.battleArray[7] " / " afb.battleArray[8] " / " afb.battleArray[9] " / " afb.battleArray[10] " / " afb.battleArray[11])
-
+    MsgBox, % afb.friendlyBattleArray[0] "`n" afb.friendlyBattleArray[1] "`n" afb.friendlyBattleArray[2] "`n" afb.enemyBattleArray[0] "`n" afb.enemyBattleArray[1] "`n" afb.enemyBattleArray[2]
+    MsgBox, % afb.friendlyUnits "[afb.friendlyUnits]`n" afb.enemyUnits "[afb.enemyUnits]`n" afb.friendlyUnitFrontPos "[afb.friendlyUnitFrontPos]`n" afb.enemyUnitFrontPos "[afb.enemyUnitFrontPos]`n" afb.arrayDistance "[afb.arrayDistance]`n" afb.enemyTookPresumptionAction "[afb.enemyTookPresumptionAction]"
 }
 
+
 _afbEngage(this, tacticsType) {
+    global afb
     global sleepDuration1
     global sleepDuration2
     global sleepDuration3
@@ -861,7 +702,6 @@ _afbEngage(this, tacticsType) {
     global grayOutColor
     global fontColor
     turn := 0
-    battleArray := []
     checkColors := [0xFFFFFF]
 
     ;MsgBox, engage1ok
@@ -870,25 +710,25 @@ _afbEngage(this, tacticsType) {
     testActions3 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     testActions8 := [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
+
+    this.friendlyUnits :=  ; Number of friendly units.
+    this.enemyUnits :=  ; Number of enemy units.
+    this.friendlyUnitFrontPos :=
+    this.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
+    this.arrayDistance :=  ; Range 1-5.
+    this.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
+
     ; Determine whether or not a surprise attack has occurred.
     if (getWindowText(1) == "OK") {
         Send {Enter}
         sleep, sleepDuration2
 
-        if (compareColors(fontColor, 183, 103, 2)) {
+        if (compareColors([fontColor], 183, 103, 2)) {
             tacticsType := 8  ; Surprise attack succeeded.
         } else {
             tacticsType := 9
         }
     }
-
-    if (compareColors([fontColor], 183, 103, 2)) {
-        tacticsType := 8  ; Surprise attack succeeded.
-    } else {
-        tacticsType := 9
-    }
-
-
 
     switch tacticsType {
         case 1:
@@ -910,18 +750,26 @@ _afbEngage(this, tacticsType) {
         case 3:
             ;MsgBox, 通常会戦
             
-
             for i, element in testActions3 {
-                turn++
-                afb.updateBattleArray(turn)
-                ;MsgBox, %i%
-                
+                WinGetTitle, windowTitle, %appProcess%
 
-                this.inputAction(this.judgeAction(element))
-                Sleep, % sleepDuration3
+                if (windowTitle == "野戦") {
+                    turn++
+                    ;afb.updateBattleArray(turn)
+                    ;MsgBox, %i%
+                    
 
-                if (getWindowText(1) == "OK") {
-                    ;MsgBox, End of battle.
+                    this.inputAction(this.judgeAction(element))
+                    Sleep, % sleepDuration3
+
+                    if (getWindowText(1) == "OK") {
+                        ;MsgBox, "[afb.engage() / case3 / getWindowText(1) == OK]"
+                        Send {Enter}
+                        Sleep, % sleepDuration2
+                    }
+
+                } else {
+                    ;MsgBox, "[afb.engage() / case3 / brake]"
                     break
                 }
             }            
@@ -1887,6 +1735,7 @@ XButton1::  ; Main action button.
             }
         case "野戦発生":
             if (!isAfbRunning) {
+                MsgBox, "野戦発生"
                 afb.jindate(1)  ; The supreme commander will be selected from a smallest unit of the commander. 
             }
         case "戦国史SE", "戦国史FE":
@@ -1961,34 +1810,9 @@ Break::
     afb.engage(3)
     return
 
-BackSpace::
-    ;isRgbApproximateColor(100, "r", 255, 100, 1, 600, 600, 0)
-    return
 
-Up::
-    ;colorDiff1 := calcAverageOfColorDifference(0x000000, 0xFFFFFF)
-    colorDiff1 := calcAverageOfColorDifference(0xE5E5D9, 0xFFFFFF)
-    MsgBox, %colorDiff1%
-    ;afb.jindate(1)  ; 最少部隊総大将
-    ;afb.engage(1)  ; 通常釣り出し交戦
-    return
 
-Down::
-    MouseMove, 629, 118
-    v := isApproximateColor(0xFF7D5A, 20, 2, 629, 118, 2)  ; isApproximateColor(hexColor, allowance, completion, x, y, delta)
-    MsgBox, %v%
-    ;afb.engage(1)  ; 通常釣り出し交戦
-    return
 
-Left::
-    afb.updateBattleArray(1)
-    Sleep, 1000
-    afb.updateBattleArray(2)
-    return
-
-1::
-    afb.updateBattleArray(1)
-    return
 
 Numpad1::
     afb.jindate(1)  ; 兵最少部隊総大将
@@ -1997,6 +1821,7 @@ Numpad1::
 
 Numpad3::
     afb.jindate(3)  ; 指揮最大部隊総大将
+    Sleep, 500
     afb.engage(3)  ; 通常交戦
     return
 
