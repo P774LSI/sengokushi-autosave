@@ -270,6 +270,7 @@ isSupplyHyoroRunning := false
 isCustomManageCorpsFundsRunning := false
 isAssistDomesticAffairsRunning := false
 isAfbRunning := false
+isAswRunning := false
 
 ; test
 sleepDurationTest1 := 500
@@ -799,11 +800,99 @@ _afbEngage(this, tacticsType) {
     isAfbRunning := false
 }
 
+; Auto siege warfare (ASW).
+asw := {}
 
 
+asw.attack := Func("_aswAttack")
+asw.defend := Func("_aswDefend")
+asw.execute := Func("_aswExecute")
+
+asw.fireExecuteDuration := -2000
 
 
+_aswAttack(this) {
+    global isAswRunning
+    ;global sleepDuration1
+    ;global sleepDuration2
+    global sleepDuration3
+    global fontColor
+    turn := 0
+    ;roadType :=
+    friendlySoldiers :=
+    enemySoldiers :=
+    isStormEnabled := true
 
+    if (!isAswRunning) {
+        return
+    }
+
+    ;MsgBox, "[asw.attack() call]"
+
+    WinGetText, strings, %appProcess%
+    infoTexts := StrSplit(strings, "`r`n")
+
+
+    ;turn := infoTexts[12]
+    friendlySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+    enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+
+    Loop 5 {
+        if (isAswRunning) {
+            turn++
+
+            if (turn != 1) {
+                friendlySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+                enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+                ;MsgBox, % turn "`n" friendlySoldiers "`n" enemySoldiers
+            }
+            
+            if (isStormEnabled && getColor(176, 447) == fontColor) {
+                MouseMove, 173, 446
+                Sleep, sleepDuration1
+                Click
+                Sleep, sleepDuration1
+            } else {
+                MouseMove, 173, 472
+                Sleep, sleepDuration1
+                Click 
+                Sleep, sleepDuration1         
+            }
+        }
+    }
+
+    ; Close the window.
+    MouseMove, 393, 458
+    Sleep, sleepDuration1
+    Click
+    isAswRunning := false
+}
+
+_aswDefend(this) {
+    global isAswRunning
+
+
+    isAswRunning := false
+}
+
+
+_aswExecute(this, tacticsType) {
+    global sleepDuration1
+    global sleepDuration2
+    global sleepDuration3
+    global sleepDurationTest1
+    global isAswRunning
+    buttonShadowColor := 0x606060
+
+    isAswRunning := true
+
+    if (getColor(224, 444) == buttonShadowColor) { ;  Player is the attacker.
+        SetTimer, aswStartAttack, % this.fireExecuteDuration
+        
+    } else { ;  Player is the defender.
+        SetTimer, aswStartDefend, % this.fireExecuteDuration
+    }
+}
 
 
 
@@ -843,6 +932,14 @@ executeAutoSuspend:
         Suspend, off
     }
     return
+
+aswStartAttack:
+    asw.attack()
+    return
+
+aswStartDefend:
+    asw.defend()
+    return   
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Functions.
@@ -1710,8 +1807,20 @@ ScrollLock:: ; Toggle the suspend key on and off.
     return
 
 MButton:: ; Quick save.
-    if (WinActive(appProcess)) {
-        save()
+    if (!WinExist(appProcess) || !WinActive(appProcess)) {
+        return
+    }
+
+    WinGetTitle, windowTitle, %appProcess%
+
+    switch windowTitle {
+        case "城攻略戦":
+            if (isAswRunning) {
+                ;MsgBox, "Stop ASW"
+                isAswRunning := false
+            }
+        case "戦国史SE", "戦国史FE":
+            save()
     }
     return
 
@@ -1770,6 +1879,10 @@ XButton2::
             if (!isSupplyHyoroRunning) {
                 maxSupplyHyoro()
             }
+        case "野戦発生":
+            if (!isAswRunning) {
+                asw.attack()
+            }
         case "戦国史SE", "戦国史FE":
             phaseType := detectPhase()
 
@@ -1807,7 +1920,8 @@ Break::
     ;afb.jindate(3)
     ;afb.test()
     ;afb.inputAction()
-    afb.engage(3)
+    ;afb.engage(3)
+    asw.execute()
     return
 
 
