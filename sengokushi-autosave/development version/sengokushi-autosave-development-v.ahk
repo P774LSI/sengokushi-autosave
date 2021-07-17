@@ -229,9 +229,10 @@ sleepDuration1 := 50
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
 
-sleepDuration3 := 300
+sleepDuration3 := 500
 
-
+matchlockForce := 70
+stuckRate := 1.1
 
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -271,6 +272,14 @@ isCustomManageCorpsFundsRunning := false
 isAssistDomesticAffairsRunning := false
 isAfbRunning := false
 isAswRunning := false
+
+isAutoBattleRunning := false
+
+; Used by analyze to are both force.
+cavalryCoefficient := 3
+infantryCoefficient := 1
+matchlockBaseCoefficient := 0.6
+matchlockCoefficient := matchlockBaseCoefficient * matchlockForce / 10 * stuckRate
 
 ; test
 sleepDurationTest1 := 500
@@ -316,18 +325,30 @@ setTooltipText()
 
 ; Auto field battle(AFB).
 afb := {}
+;afb.generalListTop := 168
+;afb.generalListRowHeight := 16
 
-afb.generalListTop := 168
-afb.generalListRowHeight := 16
+afb.playerDaimyo :=
+afb.enemyDaimyo :=
+afb.ownSoldiers :=
+afb.enemySoldiers :=
+afb.ownCavalry :=
+afb.enemyCavalry :=
+afb.ownMatchlocks :=
+afb.enemyMatchlocks :=
+;afb.matchlockCompositionRate :=
+afb.ownTacticsType :=
 
-afb.friendlyBattleArray := []
+afb.ownBattleArray := []
 afb.enemyBattleArray := []  ; Index 0: The first unit. Index 1: The second unit. Index 2: Headquarters.
-afb.friendlyUnits :=  ; Number of friendly units.
+afb.ownUnits :=  ; Number of own units.
 afb.enemyUnits :=  ; Number of enemy units.
-afb.friendlyUnitFrontPos :=
+afb.ownUnitFrontPos :=
 afb.enemyUnitFrontPos :=  ; Default an enemy first unit position.
 afb.arrayDistance :=  ; Range 1-5.
 afb.enemyTookPresumptionAction :=  ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
+
+
 
 
 
@@ -338,14 +359,82 @@ afb.enemyTookPresumptionAction :=  ; Enemy took a presumption action. 0 is wait,
 ;afb.honzinStringColor := getColor(263, 483)
 
 
-
+afb.analyzeForce := Func("_afbAnalyzeForce")
 afb.jindate := Func("_afbJindate")
 afb.engage := Func("_afbEngage")
 afb.judgeAction := Func("_afbJudgeAction")
 afb.inputAction := Func("_afbInputAction")
 afb.updateBattleArray := Func("_afbUpdateBattleArray")
 
+_afbAnalyzeForce(this) {
+    global matchlockForce
+    global cavalryCoefficient
+    global infantryCoefficient
+    global matchlockBaseCoefficient
+    global matchlockCoefficient
+    ownForceStrength :=
+    enemyForceStrength :=
+    forceRatio :=
+    
+    matchlocksRatio :=
+    ownMatchlocksStrength :=
+    enemyMatchlocksStrength :=
 
+    actuallyOwnForceStrength :=
+    actuallyEnemyForceStrength :=
+    actuallyForceRatio :=
+
+    WinGetTitle, windowTitle, %appProcess%
+
+    if (windowTitle != "野戦発生") {
+        return
+    }
+
+    WinGetText, strings, %appProcess%
+    infoTexts := StrSplit(strings, "`r`n")
+    this.playerDaimyo := RegExReplace(infoTexts[11], "家兵力", "")
+    this.enemyDaimyo := RegExReplace(infoTexts[12], "家兵力", "")
+    this.ownCavalry := RegExReplace(infoTexts[13], "[^0-9]+", "")
+    this.enemyCavalry := RegExReplace(infoTexts[14], "[^0-9]+", "")
+    this.ownSoldiers := RegExReplace(infoTexts[15], "[^0-9]+", "")
+    this.enemySoldiers := RegExReplace(infoTexts[16], "[^0-9]+", "")
+    this.ownMatchlocks := RegExReplace(infoTexts[17], "[^0-9]+", "")
+    this.enemyMatchlocks := RegExReplace(infoTexts[18], "[^0-9]+", "")
+
+    ;MsgBox, % this.playerDaimyo "`n" this.enemyDaimyo "`n" this.ownCavalry "`n" this.enemyCavalry "`n" this.ownSoldiers "`n" this.enemySoldiers "`n" this.ownMatchlocks "`n" this.enemyMatchlocks "`n"
+
+    ownForceStrength := this.ownCavalry * cavalryCoefficient + this.ownSoldiers * infantryCoefficient
+    enemyForceStrength := this.enemyCavalry * cavalryCoefficient + this.enemySoldiers * infantryCoefficient
+    forceRatio := ownForceStrength / enemyForceStrength
+    matchlocksRatio := this.ownMatchlocks / this.enemyMatchlocks
+
+    ownMatchlocksStrength := matchlockCoefficient * this.ownMatchlocks
+    enemyMatchlocksStrength := matchlockCoefficient * this.enemyMatchlocks
+    actuallyOwnForceStrength := ownForceStrength + ownMatchlocksStrength
+    actuallyEnemyForceStrength := enemyForceStrength + enemyMatchlocksStrength
+    actuallyForceRatio := actuallyOwnForceStrength / actuallyEnemyForceStrength
+
+    if (actuallyOwnForceStrength * 1.3 < actuallyEnemyForceStrength) {
+        if (this.enemyMatchlocks * 10 < this.ownMatchlocks) {
+            this.ownTacticsType := 7  ; Retreat if enemy approaches own force.
+        } else {
+            this.ownTacticsType := 8  ; Surprise attack succeeded.
+        }
+    } else {
+        if (ownMatchlocksStrength > actuallyEnemyForceStrength) {
+            this.ownTacticsType := 4  ; Teppo turidasi.
+        } else {
+            if (ownForceStrength * 0.3 < ownMatchlocksStrength) {
+                this.ownTacticsType := 3  ; Firefight.
+            } else {
+                this.ownTacticsType := 1  ; Close battle.
+            }
+        }
+    }
+
+    MsgBox, % ownForceStrength " [ownForceStrength]`n" enemyForceStrength " [enemyForceStrength]`n" forceRatio " [forceRatio]`n" actuallyOwnForceStrength
+    . " [actuallyOwnForceStrength]`n" actuallyEnemyForceStrength " [actuallyEnemyForceStrength]`n" actuallyForceRatio " [actuallyForceRatio]`n" this.ownTacticsType " [afb.ownTacticsType]`n" 
+}
 
 
 _afbJindate(this, commanderType) {
@@ -376,7 +465,26 @@ _afbJindate(this, commanderType) {
     }
 
     switch commanderType {
-        case 1:  ; The commander having the smallest units.
+        case 1:  ; The commander having a highest leadership ability with the field battle.
+            MouseMove, 353, 160
+            Sleep, sleepDurationTest1
+            Click  ; Click a column header to ordered the list by the leadership ability.
+            Sleep, sleepDurationTest1
+            ;MouseClick, WheelUp, , , 5
+            Sleep, sleepDurationTest1
+            MouseMove, 353, 174
+            Sleep, sleepDurationTest1
+            Click  ; Choose a commander.
+
+            honzinStringColor := getColor(263, 483)
+
+            if (honzinStringColor == grayOutColor) {
+                commanderType := 0
+            }
+        
+        case 2:  ; The commander having the biggest units.
+        
+        case 3:  ; The commander having the smallest units.
             MouseMove, 210, 160
             Sleep, sleepDurationTest1
             Click
@@ -411,26 +519,8 @@ _afbJindate(this, commanderType) {
 
             ; test return
             ;return
-        
-        case 2:  ; The commander having the biggest units.
-        
-        case 3:  ; The commander having a highest leadership ability with the field battle.
-            ;MsgBox, case3
-            MouseMove, 353, 160
-            Sleep, sleepDurationTest1
-            Click  ; Click a column header to ordered the list by the leadership ability.
-            Sleep, sleepDurationTest1
-            ;MouseClick, WheelUp, , , 5
-            Sleep, sleepDurationTest1
-            MouseMove, 353, 174
-            Sleep, sleepDurationTest1
-            Click  ; Choose a commander.
 
-            honzinStringColor := getColor(263, 483)
-
-            if (honzinStringColor == grayOutColor) {
-                commanderType := 0
-            }
+        case 4:  ; The commander having the most common cavalry.
     }
 
     if (commanderType) {
@@ -564,10 +654,10 @@ _afbInputAction(this, actionType) {
 _afbUpdateBattleArray(this, turn) {
     global afb
     enemyColor := 0xFF7D5A
-    friendlyColor :=
+    ownColor :=
     pickedColor :=
     enemyFrontPos :=
-    friendlyFrontPos :=
+    ownFrontPos :=
     oldEnemyUnits := afb.enemyUnits
     oldEnemyFrontPos := afb.enemyUnitFrontPos
     oldDistance := afb.arrayDistance
@@ -675,8 +765,8 @@ _afbUpdateBattleArray(this, turn) {
 
 
 
-    afb.friendlyUnitFrontPos := Max(afb.friendlyBattleArray[0], afb.friendlyBattleArray[1], afb.friendlyBattleArray[2])
-    afb.arrayDistance := afb.enemyUnitFrontPos - afb.friendlyUnitFrontPos  ; Calc the distance.
+    afb.ownUnitFrontPos := Max(afb.ownBattleArray[0], afb.ownBattleArray[1], afb.ownBattleArray[2])
+    afb.arrayDistance := afb.enemyUnitFrontPos - afb.ownUnitFrontPos  ; Calc the distance.
 
     if (afb.arrayDistance < oldDistance) {
         afb.enemyTookPresumptionAction := 1    
@@ -689,8 +779,8 @@ _afbUpdateBattleArray(this, turn) {
     }
 
 
-    MsgBox, % afb.friendlyBattleArray[0] "`n" afb.friendlyBattleArray[1] "`n" afb.friendlyBattleArray[2] "`n" afb.enemyBattleArray[0] "`n" afb.enemyBattleArray[1] "`n" afb.enemyBattleArray[2]
-    MsgBox, % afb.friendlyUnits "[afb.friendlyUnits]`n" afb.enemyUnits "[afb.enemyUnits]`n" afb.friendlyUnitFrontPos "[afb.friendlyUnitFrontPos]`n" afb.enemyUnitFrontPos "[afb.enemyUnitFrontPos]`n" afb.arrayDistance "[afb.arrayDistance]`n" afb.enemyTookPresumptionAction "[afb.enemyTookPresumptionAction]"
+    ;MsgBox, % afb.ownBattleArray[0] "`n" afb.ownBattleArray[1] "`n" afb.ownBattleArray[2] "`n" afb.enemyBattleArray[0] "`n" afb.enemyBattleArray[1] "`n" afb.enemyBattleArray[2]
+    ;MsgBox, % afb.ownUnits "[afb.ownUnits]`n" afb.enemyUnits "[afb.enemyUnits]`n" afb.ownUnitFrontPos "[afb.ownUnitFrontPos]`n" afb.enemyUnitFrontPos "[afb.enemyUnitFrontPos]`n" afb.arrayDistance "[afb.arrayDistance]`n" afb.enemyTookPresumptionAction "[afb.enemyTookPresumptionAction]"
 }
 
 
@@ -707,14 +797,14 @@ _afbEngage(this, tacticsType) {
 
     ;MsgBox, engage1ok
     testActions1 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
-    testActions2 := [3, 1, 1, 1, 2, 2, 2]
+    testActions2 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     testActions3 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     testActions8 := [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
 
-    this.friendlyUnits :=  ; Number of friendly units.
+    this.ownUnits :=  ; Number of own units.
     this.enemyUnits :=  ; Number of enemy units.
-    this.friendlyUnitFrontPos :=
+    this.ownUnitFrontPos :=
     this.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
     this.arrayDistance :=  ; Range 1-5.
     this.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
@@ -732,8 +822,33 @@ _afbEngage(this, tacticsType) {
     }
 
     switch tacticsType {
-        case 1:
-            ;MsgBox, 通常釣り出し
+        case 1:  ; Close battle.
+            ;MsgBox, 白兵戦
+            
+            for i, element in testActions1 {
+                WinGetTitle, windowTitle, %appProcess%
+
+                if (getWindowText(1) == "OK") {
+                    Send {Enter}
+                    sleep, sleepDuration2
+                }
+
+                if (getColor(116, 173) == fontColor) {
+                    break
+                } else {
+                    turn++
+                    afb.updateBattleArray(turn)    
+                    this.inputAction(this.judgeAction(element))
+                    Sleep, % sleepDuration3
+                }
+            }
+        case 3:  ; Firefight and close battle.
+            ;MsgBox, 射撃戦&白兵戦
+        case 3:  ; Firefight.
+            ;MsgBox, 射撃戦
+
+        case 4:  ; Teppo turidasi.
+            ;MsgBox, 鉄砲釣り出し
 
             for i, element in testActions3 {
                 turn++
@@ -746,34 +861,10 @@ _afbEngage(this, tacticsType) {
                     break
                 }
             }
-        case 2:
-            ;MsgBox, 鉄砲釣り出し
-        case 3:
-            ;MsgBox, 通常会戦
-            
-            for i, element in testActions3 {
-                WinGetTitle, windowTitle, %appProcess%
 
-                if (windowTitle == "野戦") {
-                    turn++
-                    ;afb.updateBattleArray(turn)
-                    ;MsgBox, %i%
-                    
 
-                    this.inputAction(this.judgeAction(element))
-                    Sleep, % sleepDuration3
-
-                    if (getWindowText(1) == "OK") {
-                        ;MsgBox, "[afb.engage() / case3 / getWindowText(1) == OK]"
-                        Send {Enter}
-                        Sleep, % sleepDuration2
-                    }
-
-                } else {
-                    ;MsgBox, "[afb.engage() / case3 / brake]"
-                    break
-                }
-            }            
+        case 6:  ; Retreat immediately.
+        case 7:  ; Retreat if enemy approaches own force.
         case 8:  ; Surprise attack succeeded.
             for i, element in testActions8 {
                 turn++
@@ -786,7 +877,7 @@ _afbEngage(this, tacticsType) {
                     break
                 }
             }
-        case 9:
+        case 9:  ; Surprised by an enemy. 
   
     }
 
@@ -802,62 +893,53 @@ _afbEngage(this, tacticsType) {
 
 ; Auto siege warfare (ASW).
 asw := {}
-
-
 asw.attack := Func("_aswAttack")
 asw.defend := Func("_aswDefend")
 asw.execute := Func("_aswExecute")
+asw.fireExecuteDuration := 2000
 
-asw.fireExecuteDuration := -2000
-
-
-_aswAttack(this) {
+_aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
     global isAswRunning
-    ;global sleepDuration1
-    ;global sleepDuration2
+    global sleepDuration1
     global sleepDuration3
     global fontColor
     turn := 0
-    ;roadType :=
-    friendlySoldiers :=
+    ownSoldiers :=
     enemySoldiers :=
-    isStormEnabled := true
-
-    if (!isAswRunning) {
-        return
-    }
 
     ;MsgBox, "[asw.attack() call]"
 
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
-
-
-    ;turn := infoTexts[12]
-    friendlySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+    ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
     enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+    Sleep, this.fireExecuteDuration
 
     Loop 5 {
-        if (isAswRunning) {
-            turn++
+        turn++
 
-            if (turn != 1) {
-                friendlySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
-                enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
-                ;MsgBox, % turn "`n" friendlySoldiers "`n" enemySoldiers
-            }
-            
-            if (isStormEnabled && getColor(176, 447) == fontColor) {
-                MouseMove, 173, 446
-                Sleep, sleepDuration1
-                Click
-                Sleep, sleepDuration1
-            } else {
-                MouseMove, 173, 472
-                Sleep, sleepDuration1
-                Click 
-                Sleep, sleepDuration1         
-            }
+        if (!isAswRunning) {
+            return
+        }
+
+        if (turn != 1) {
+            ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+            enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+            ;MsgBox, % turn "`n" ownSoldiers "`n" enemySoldiers
+        }
+        
+        if (tacticsType && getColor(176, 447) == fontColor) {
+            Sleep, sleepDuration3
+            MouseMove, 173, 446
+            Sleep, sleepDuration1
+            Click
+            Sleep, sleepDuration1
+        } else {
+            Sleep, sleepDuration3
+            MouseMove, 173, 472
+            Sleep, sleepDuration1
+            Click 
+            Sleep, sleepDuration1         
         }
     }
 
@@ -868,34 +950,22 @@ _aswAttack(this) {
     isAswRunning := false
 }
 
-_aswDefend(this) {
+_aswDefend(this, tacticsType) {
     global isAswRunning
-
-
     isAswRunning := false
 }
 
-
 _aswExecute(this, tacticsType) {
-    global sleepDuration1
-    global sleepDuration2
-    global sleepDuration3
-    global sleepDurationTest1
     global isAswRunning
     buttonShadowColor := 0x606060
-
     isAswRunning := true
 
     if (getColor(224, 444) == buttonShadowColor) { ;  Player is the attacker.
-        SetTimer, aswStartAttack, % this.fireExecuteDuration
-        
+        this.attack(tacticsType)
     } else { ;  Player is the defender.
-        SetTimer, aswStartDefend, % this.fireExecuteDuration
+        this.defend(tacticsType)
     }
 }
-
-
-
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Labels.
@@ -932,14 +1002,6 @@ executeAutoSuspend:
         Suspend, off
     }
     return
-
-aswStartAttack:
-    asw.attack()
-    return
-
-aswStartDefend:
-    asw.defend()
-    return   
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Functions.
@@ -1847,6 +1909,12 @@ XButton1::  ; Main action button.
                 MsgBox, "野戦発生"
                 afb.jindate(1)  ; The supreme commander will be selected from a smallest unit of the commander. 
             }
+        case "城攻略戦":
+            if (isAswRunning) {
+                isAswRunning := false
+            } else {
+                asw.execute(0)
+            }
         case "戦国史SE", "戦国史FE":
             phaseType := detectPhase()
 
@@ -1879,9 +1947,11 @@ XButton2::
             if (!isSupplyHyoroRunning) {
                 maxSupplyHyoro()
             }
-        case "野戦発生":
-            if (!isAswRunning) {
-                asw.attack()
+        case "城攻略戦":
+            if (isAswRunning) {
+                isAswRunning := false
+            } else {
+                asw.execute(1)
             }
         case "戦国史SE", "戦国史FE":
             phaseType := detectPhase()
@@ -1921,7 +1991,8 @@ Break::
     ;afb.test()
     ;afb.inputAction()
     ;afb.engage(3)
-    asw.execute()
+    ;asw.execute()
+    afb.analyzeForce()
     return
 
 
@@ -1929,18 +2000,18 @@ Break::
 
 
 Numpad1::
-    afb.jindate(1)  ; 兵最少部隊総大将
-    afb.engage(1)  ; 釣り出し交戦
+    afb.jindate(1)  ; 指揮最大部隊総大将
+    afb.engage(1)  ; 通常交戦
     return
 
 Numpad3::
-    afb.jindate(3)  ; 指揮最大部隊総大将
+    afb.jindate(3)  ; 兵最少部隊総大将
     Sleep, 500
-    afb.engage(3)  ; 通常交戦
+    afb.engage(3)  ; 
     return
 
 Numpad4::
-    afb.jindate(1)  ; 指揮最大部隊総大将
+    afb.jindate(1)  ; 
     return
 
 Numpad6::
