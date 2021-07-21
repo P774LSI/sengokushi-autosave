@@ -1,5 +1,5 @@
 ﻿; @name "Sengokushi AutoSave"
-; @version "1.3.0.α1 / 20210703"
+; @version "1.3.0.α9 / 20210721"
 ; @author "P-774LSI / https://github.com/P774LSI/sengokushi-autosave"
 ; @lisence "CC0"
 
@@ -35,7 +35,7 @@ http://ahkwiki.net/Hotkeys
 センターボタン: クイックセーブ。
 サイドボタン1:  [軍備フェイズ] 徴兵ウィンドウを開いて人物または城を選択した状態で押すと、事前に指定された数の足軽または城兵を徴兵します。
                [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、事前に指定された数量の兵糧を補充します。
-               [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に指定された数値を入力します。動作中もう1度押すと鉄砲以外はさらに加算されます。
+               [軍備フェイズ] 軍団資産ウィンドウを開いた状態で押すと、資金供給・資金徴収・鉄砲支給の入力フォームに事前に指定された数値を入力します。もう1度押すと鉄砲以外はさらに加算されます。
                [内政フェイズ] 内政アシスト。内政フェイズで各サブウィンドウを開く前に押します。
 サイドボタン2:  [軍備フェイズ] 徴兵ウィンドウを開いた状態で押すと、足軽数が指定数以上の人物はすべて最大まで徴兵します。動作中もう1度押すと中止します。
                [軍備フェイズ] 城兵糧補充ウィンドウを開いて城を選択した状態で押すと、最大まで兵糧を補充します。
@@ -229,10 +229,20 @@ sleepDuration1 := 50
 ; ダイアログやサブウィンドウの表示を待つためのスリープ時間を指定します（ミリ秒）。
 sleepDuration2 := 500
 
+; 戦闘中のターン間の待ち時間を指定します（ミリ秒）。
 sleepDuration3 := 500
+
+; 自動戦闘有効時の、各戦闘における処理開始までの待ち時間を指定します（ミリ秒）。
+battleWaitDuration := 3000
 
 matchlockForce := 70
 stuckRate := 1.1
+isAutoFieldBattleEnabled := true
+isAutoSiegeWarfareEnabled := false
+
+isAutoFieldBattleReserved := false
+
+isskipNotificationEnabled := true
 
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -282,7 +292,8 @@ matchlockBaseCoefficient := 0.6
 matchlockCoefficient := matchlockBaseCoefficient * matchlockForce / 10 * stuckRate
 
 ; test
-sleepDurationTest1 := 500
+sleepDurationTest1 := 1000
+isMainTimerRequirement := true
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -317,6 +328,9 @@ if (isAutoSuspendEnabled) {
     SetTimer, executeAutoSuspend, % (WinExist(appProcess) ? 2000 : "off")
 }
 
+; Detect phase timer (main thread timer).
+SetTimer, mainThread, % (isMainTimerRequirement ? 500 : "off")
+
 ; Change the default tray tooltip.
 setTooltipText()
 
@@ -325,8 +339,8 @@ setTooltipText()
 
 ; Auto field battle(AFB).
 afb := {}
-;afb.generalListTop := 168
-;afb.generalListRowHeight := 16
+afb.generalListTop := 168
+afb.generalListRowHeight := 16
 
 afb.playerDaimyo :=
 afb.enemyDaimyo :=
@@ -338,6 +352,7 @@ afb.ownMatchlocks :=
 afb.enemyMatchlocks :=
 ;afb.matchlockCompositionRate :=
 afb.ownTacticsType :=
+afb.commanderType :=
 
 afb.ownBattleArray := []
 afb.enemyBattleArray := []  ; Index 0: The first unit. Index 1: The second unit. Index 2: Headquarters.
@@ -384,12 +399,6 @@ _afbAnalyzeForce(this) {
     actuallyEnemyForceStrength :=
     actuallyForceRatio :=
 
-    WinGetTitle, windowTitle, %appProcess%
-
-    if (windowTitle != "野戦発生") {
-        return
-    }
-
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
     this.playerDaimyo := RegExReplace(infoTexts[11], "家兵力", "")
@@ -417,17 +426,22 @@ _afbAnalyzeForce(this) {
     if (actuallyOwnForceStrength * 1.3 < actuallyEnemyForceStrength) {
         if (this.enemyMatchlocks * 10 < this.ownMatchlocks) {
             this.ownTacticsType := 7  ; Retreat if enemy approaches own force.
+            this.commanderType := 3
         } else {
-            this.ownTacticsType := 8  ; Surprise attack succeeded.
+            this.ownTacticsType := 6  ; Retreat immediately.
+            this.commanderType := 1
         }
     } else {
         if (ownMatchlocksStrength > actuallyEnemyForceStrength) {
             this.ownTacticsType := 4  ; Teppo turidasi.
+            this.commanderType := 3
         } else {
             if (ownForceStrength * 0.3 < ownMatchlocksStrength) {
                 this.ownTacticsType := 3  ; Firefight.
+                this.commanderType := 1
             } else {
                 this.ownTacticsType := 1  ; Close battle.
+                this.commanderType := 1
             }
         }
     }
@@ -438,23 +452,28 @@ _afbAnalyzeForce(this) {
 
 
 _afbJindate(this, commanderType) {
+    global isAutoFieldBattleEnabled
     global isAfbRunning
     global sleepDuration1
     global grayOutColor
     global lineColor
     global sleepDurationTest1
+    global battleWaitDuration
     honzinStringColor :=
     isBottom := false
     color1 :=
     counter := 0
     currentYPos :=
-    isAfbRunning := true
+    ;isAfbRunning := true
 
 
-    WinGetTitle, windowTitle, %appProcess%
 
-    if (windowTitle != "野戦発生") {
-        isAfbRunning := false
+    Sleep, battleWaitDuration
+
+    
+
+    if (!isAutoFieldBattleEnabled) {
+        ;isAfbRunning := false
         return
     }
 
@@ -480,6 +499,7 @@ _afbJindate(this, commanderType) {
 
             if (honzinStringColor == grayOutColor) {
                 commanderType := 0
+                MsgBox, "commanderType := 0"
             }
         
         case 2:  ; The commander having the biggest units.
@@ -489,7 +509,6 @@ _afbJindate(this, commanderType) {
             Sleep, sleepDurationTest1
             Click
             
-            ;While (!isBottom || counter < 21) {
             While (!isBottom) {
                 counter++
                 ;currentYPos := % this.generalListTop + this.generalListRowHeight
@@ -509,16 +528,13 @@ _afbJindate(this, commanderType) {
             ;MsgBox, %counter% [counter]
 
             MouseMove, 210, % -7 + this.generalListTop + this.generalListRowHeight * (counter - 1)
-            Sleep, 2000
+            Sleep, sleepDurationTest1
             Click
             honzinStringColor := getColor(263, 483)
 
             if (honzinStringColor == grayOutColor) {
                 commanderType := 0
             }
-
-            ; test return
-            ;return
 
         case 4:  ; The commander having the most common cavalry.
     }
@@ -556,7 +572,10 @@ _afbJindate(this, commanderType) {
         Click
     }
 
-
+    While (windowTitle == "野戦発生") { ; Wait to battle field window.
+        WinGetTitle, windowTitle, %appProcess%
+        Sleep, 2000
+    }
 }
 
 _afbJudgeAction(this, actionType) {
@@ -604,7 +623,14 @@ _afbJudgeAction(this, actionType) {
             case 5:  ; Wait(待機).
                 return 5
             case 6:  ; Restreat(退却).
-                return 6
+                stringColor := getColor(182, 103)
+
+                if (stringColor == fontColor) {
+                    return 6
+                } else {
+                    ;MsgBox, 攻撃可能判定へ
+                    actionType := 2
+                }
         }
     }
 }
@@ -620,8 +646,6 @@ _afbInputAction(this, actionType) {
     changeBattleArrayYPos := 74
     waitYPos := 103
     retreatYPos := 103
-
-    ;MsgBox, InputAction OK!
 
     switch actionType {
         case 1:  ; Move forward(前進).
@@ -786,6 +810,8 @@ _afbUpdateBattleArray(this, turn) {
 
 _afbEngage(this, tacticsType) {
     global afb
+    global isAutoFieldBattleEnabled
+    global battleWaitDuration
     global sleepDuration1
     global sleepDuration2
     global sleepDuration3
@@ -793,14 +819,7 @@ _afbEngage(this, tacticsType) {
     global grayOutColor
     global fontColor
     turn := 0
-    checkColors := [0xFFFFFF]
-
-    ;MsgBox, engage1ok
-    testActions1 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
-    testActions2 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
-    testActions3 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
-    testActions8 := [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
-
+    actionList :=
 
     this.ownUnits :=  ; Number of own units.
     this.enemyUnits :=  ; Number of enemy units.
@@ -821,7 +840,63 @@ _afbEngage(this, tacticsType) {
         }
     }
 
-    switch tacticsType {
+    ; 1: Move forward, 2: Attack, 3: Fire, 4: Change a battle array, 5: Wait, 6: Restreat
+    actionList1 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    actionList2 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    actionList3 := [3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    actionList4 := [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    actionList6 := [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+    actionList7 := [3, 3, 3, 3, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+    actionList8 := [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    actionList9 := [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+
+    switch (tacticsType) {
+        case 1:  ; Close battle.
+            actionList := actionList1
+        case 2:  ; Firefight and close battle.
+            actionList := actionList2
+        case 3:  ; Firefight.
+            actionList := actionList3
+        case 4:  ; Teppo turidasi.
+            actionList := actionList4
+        case 6:  ; Retreat immediately.
+            actionList := actionList6
+        case 7:  ; Retreat if enemy approaches own force.
+            actionList := actionList7
+        case 8:  ; Surprise attack succeeded.
+            actionList := actionList8
+        case 9:  ; Surprised by an enemy. 
+            actionList := actionList9
+    }
+
+    Sleep, battleWaitDuration
+
+    if (!isAutoFieldBattleEnabled) {
+        return
+    }
+
+
+    for i, element in actionList {
+        WinGetTitle, windowTitle, %appProcess%
+
+        if (getWindowText(1) == "OK") {
+            Send {Enter}
+            sleep, sleepDuration2
+        }
+
+        if (getColor(116, 173) == fontColor) {
+            ;MsgBox, "戦闘終了閉じるボタン表示中"
+            break
+        } else {
+            turn++
+            afb.updateBattleArray(turn)
+            this.inputAction(this.judgeAction(element))
+            Sleep, % sleepDuration3
+        }
+    }
+
+/*
+    switch (tacticsType) {
         case 1:  ; Close battle.
             ;MsgBox, 白兵戦
             
@@ -834,6 +909,7 @@ _afbEngage(this, tacticsType) {
                 }
 
                 if (getColor(116, 173) == fontColor) {
+                    ;MsgBox, "退却ボタン表示中"
                     break
                 } else {
                     turn++
@@ -842,7 +918,7 @@ _afbEngage(this, tacticsType) {
                     Sleep, % sleepDuration3
                 }
             }
-        case 3:  ; Firefight and close battle.
+        case 2:  ; Firefight and close battle.
             ;MsgBox, 射撃戦&白兵戦
         case 3:  ; Firefight.
             ;MsgBox, 射撃戦
@@ -880,15 +956,12 @@ _afbEngage(this, tacticsType) {
         case 9:  ; Surprised by an enemy. 
   
     }
+*/
 
-    Sleep, sleepDuration2
-    MouseMove, 88, 48
-    Sleep, sleepDurationTest1
-    Click
     MouseMove, 126, 170
     Sleep, sleepDurationTest1
     Click
-    isAfbRunning := false
+    ;isAfbRunning := false
 }
 
 ; Auto siege warfare (ASW).
@@ -1000,6 +1073,68 @@ executeAutoSuspend:
         Suspend, on
     } else {
         Suspend, off
+    }
+    return
+
+mainThread:
+    if (isAfbRunning || isAswRunning) {
+        return
+    }
+
+    WinGetTitle, windowTitle, %appProcess%
+    
+    switch windowTitle {
+        case "野戦発生":
+            if (isAutoFieldBattleEnabled) {
+                isAfbRunning := true
+                afb.analyzeForce()                
+                afb.jindate(afb.commanderType)
+                ;afb.ownTacticsType := 1
+                afb.engage(afb.ownTacticsType)
+                isAfbRunning := false
+            }
+
+            ;isAutoFieldBattleEnabled := false
+        case "城攻略戦":
+            if (isAutoFieldBattleReserved) {
+                isAutoFieldBattleReserved := false
+                isAutoFieldBattleEnabled := true
+            }
+
+            if (isAutoSiegeWarfareEnabled) {
+                asw.execute(1)
+            }
+
+        case "戦国史SE", "戦国史FE":
+            phaseType := detectPhase()
+
+            switch phaseType {
+                case 1:  ; Personnel phase.
+                case 2:  ; Armaments phase.
+                case 3:  ; Domestic affairs phase.
+                case 4:  ; Strategy phase.
+                case 5:  ; Departure phase.
+            }
+        case "":
+            if (isskipNotificationEnabled) {
+                ControlGetText, controlString, Button1, %appProcess%
+
+                if (controlString == "OK") {
+                    Send {Enter}
+                    Sleep, 500
+                }
+            }
+
+        /*
+        default:
+            if (getColor(15, 21) == fontColor) {  ; Skip the battle notification window.
+                Send {Enter}
+                Sleep, 500
+            }
+            */
+
+            
+            
     }
     return
 
@@ -1876,6 +2011,12 @@ MButton:: ; Quick save.
     WinGetTitle, windowTitle, %appProcess%
 
     switch windowTitle {
+        case "野戦発生":
+            isAutoFieldBattleEnabled := false
+            isAfbRunning := false
+        case "野戦":
+            isAutoFieldBattleEnabled := false
+            isAfbRunning := false
         case "城攻略戦":
             if (isAswRunning) {
                 ;MsgBox, "Stop ASW"
@@ -1987,12 +2128,16 @@ Break::
     ;colorArray := [0x000000, 0xFFFFFF]
     ;colorArray := [0xFFFFFF]
     ;compareColors(colorArray, 641, 91, 2)
-    ;afb.jindate(3)
+    afb.jindate(1)
     ;afb.test()
     ;afb.inputAction()
     ;afb.engage(3)
     ;asw.execute()
-    afb.analyzeForce()
+    ;afb.analyzeForce()
+    return
+
+End::
+    isAutoFieldBattleReserved := true  ; ユーザー操作によるオート戦闘再開時の予約フラグ
     return
 
 
