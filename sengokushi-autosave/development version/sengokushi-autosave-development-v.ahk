@@ -233,7 +233,7 @@ sleepDuration2 := 500
 sleepDuration3 := 500
 
 ; 自動戦闘有効時の、各戦闘における処理開始までの待ち時間を指定します（ミリ秒）。
-battleWaitDuration := 3000
+battleWaitDuration := 1000
 
 matchlockForce := 70
 stuckRate := 1.1
@@ -242,7 +242,10 @@ isAutoSiegeWarfareEnabled := false
 
 isAutoFieldBattleReserved := false
 
-isskipNotificationEnabled := true
+
+; Skip notification window.
+isSkipNotificationEnabled := true
+
 
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -276,14 +279,11 @@ domesticAffairsWord =
 soldierUnit := 0  ; 1 or 10.  Define the parameter the first time of draft command.
 draftDefenderAmount := 0  ; soldierUnit(1 or 10) * draftForCastleSpinClicks(user define number)
 
-isCustomDraftRunning := false
-isSupplyHyoroRunning := false
-isCustomManageCorpsFundsRunning := false
-isAssistDomesticAffairsRunning := false
-isAfbRunning := false
-isAswRunning := false
+isSubProcessRunning := false
 
-isAutoBattleRunning := false
+;isSkipNotificationRequirement := false
+
+;isAutoBattleRunning := false
 
 ; Used by analyze to are both force.
 cavalryCoefficient := 3
@@ -292,8 +292,10 @@ matchlockBaseCoefficient := 0.6
 matchlockCoefficient := matchlockBaseCoefficient * matchlockForce / 10 * stuckRate
 
 ; test
-sleepDurationTest1 := 1000
+sleepDurationTest1 := 500
 isMainTimerRequirement := true
+
+isCpuAuthorization := false
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -328,8 +330,8 @@ if (isAutoSuspendEnabled) {
     SetTimer, executeAutoSuspend, % (WinExist(appProcess) ? 2000 : "off")
 }
 
-; Detect phase timer (main thread timer).
-SetTimer, mainThread, % (isMainTimerRequirement ? 500 : "off")
+; Detect auto process timer (for use the auto battle and skip an notification window).
+SetTimer, autoProcess, % (isMainTimerRequirement ? 4000 : "off")
 
 ; Change the default tray tooltip.
 setTooltipText()
@@ -342,6 +344,7 @@ afb := {}
 afb.generalListTop := 168
 afb.generalListRowHeight := 16
 
+afb.castle :=
 afb.playerDaimyo :=
 afb.enemyDaimyo :=
 afb.ownSoldiers :=
@@ -401,6 +404,7 @@ _afbAnalyzeForce(this) {
 
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
+    this.castle := RegExReplace(infoTexts[10], "で.+$", "")
     this.playerDaimyo := RegExReplace(infoTexts[11], "家兵力", "")
     this.enemyDaimyo := RegExReplace(infoTexts[12], "家兵力", "")
     this.ownCavalry := RegExReplace(infoTexts[13], "[^0-9]+", "")
@@ -432,7 +436,7 @@ _afbAnalyzeForce(this) {
             this.commanderType := 1
         }
     } else {
-        if (ownMatchlocksStrength > actuallyEnemyForceStrength) {
+        if (ownMatchlocksStrength > actuallyEnemyForceStrength && forceRatio < 1.6 && enemyForceStrength < 6000) {
             this.ownTacticsType := 4  ; Teppo turidasi.
             this.commanderType := 3
         } else {
@@ -453,30 +457,30 @@ _afbAnalyzeForce(this) {
 
 _afbJindate(this, commanderType) {
     global isAutoFieldBattleEnabled
-    global isAfbRunning
+    global isSubProcessRunning
     global sleepDuration1
     global grayOutColor
+    global fontColor
     global lineColor
     global sleepDurationTest1
     global battleWaitDuration
     honzinStringColor :=
     isBottom := false
     color1 :=
+    color2 :=
     counter := 0
     currentYPos :=
-    ;isAfbRunning := true
 
+    WinGetTitle, windowTitle, %appProcess%
 
+    if (windowTitle != "野戦発生") {  ; Exception handling.
+        isSubProcessRunning := false
+        return
+    }
 
     Sleep, battleWaitDuration
 
     
-
-    if (!isAutoFieldBattleEnabled) {
-        ;isAfbRunning := false
-        return
-    }
-
     color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
 
     if (color1 != lineColor) {
@@ -489,18 +493,40 @@ _afbJindate(this, commanderType) {
             Sleep, sleepDurationTest1
             Click  ; Click a column header to ordered the list by the leadership ability.
             Sleep, sleepDurationTest1
-            ;MouseClick, WheelUp, , , 5
-            Sleep, sleepDurationTest1
-            MouseMove, 353, 174
-            Sleep, sleepDurationTest1
-            Click  ; Choose a commander.
 
+            if (getColor(105, 175) == fontColor) {  ; To exclude a direct retainers.
+                while (!isBottom) {
+                    counter++
+
+                    color1 := getColor(100, this.generalListTop + this.generalListRowHeight * counter)
+                    color2 := getColor(105, 175 + this.generalListRowHeight * counter)  ; Check if a string is not a direct retainers in the list.
+
+                    if (color2 != fontColor && color1 == lineColor) {
+                        MouseMove, 105, % 175 + this.generalListRowHeight * counter
+                        Sleep, sleepDurationTest1
+                        Click  ; Choose a commander.
+                        isBottom := true
+                    } else if (color1 != lineColor) {
+                        isBottom := true
+                    } else if (counter > 14) {
+                        MouseClick, WheelDown, , , 5
+                        isBottom := true
+                    }
+                }
+            } else {
+                MouseMove, 353, 174
+                Sleep, sleepDurationTest1
+                Click  ; Choose a commander.
+            }
+
+            /* このスニペットは実装理由が不明(総大将のみか何かの分岐と思われる)なため後日要検証。
             honzinStringColor := getColor(263, 483)
 
             if (honzinStringColor == grayOutColor) {
                 commanderType := 0
                 MsgBox, "commanderType := 0"
             }
+            */
         
         case 2:  ; The commander having the biggest units.
         
@@ -554,7 +580,7 @@ _afbJindate(this, commanderType) {
             ; Set all the general to the first group.
             MouseMove, 110, % this.generalListTop + 8
             Sleep, sleepDurationTest1
-            MouseClickDrag, LEFT, 0, 0, 0, 500, 5, R
+            MouseClickDrag, LEFT, 0, 0, 0, 400, 5, R
             Sleep, sleepDurationTest1
             MouseMove, 110, 485
             Sleep, sleepDurationTest1
@@ -571,16 +597,11 @@ _afbJindate(this, commanderType) {
         Sleep, sleepDurationTest1
         Click
     }
-
-    While (windowTitle == "野戦発生") { ; Wait to battle field window.
-        WinGetTitle, windowTitle, %appProcess%
-        Sleep, 2000
-    }
 }
 
 _afbJudgeAction(this, actionType) {
     global fontColor
-    stringColor :=
+    buttonStringColor :=
     isConfirm :=
     priorityList :=
     priorityList1 := [2, 1, 3, 3]
@@ -593,26 +614,26 @@ _afbJudgeAction(this, actionType) {
     While (!isConfirm) {
         switch actionType {
             case 1:  ; Move forward(前進).
-                stringColor := getColor(54, 41)
+                buttonStringColor := getColor(54, 41)
 
-                if (stringColor == fontColor) {
+                if (buttonStringColor == fontColor) {
                     return 1
                 } else {
                     actionType := 2
                 }
             case 2:  ; Attack(攻撃).
-                stringColor := getColor(190, 41)
+                buttonStringColor := getColor(190, 41)
 
-                if (stringColor == fontColor) {
+                if (buttonStringColor == fontColor) {
                     ;MsgBox, 攻撃決定
                     return 2
                 } else {
                     actionType := 1
                 }
             case 3:  ; Fire(鉄砲射撃).
-                stringColor := getColor(77, 71)  ; or getColor(77, 69)
+                buttonStringColor := getColor(77, 71)
 
-                if (stringColor == fontColor) {
+                if (buttonStringColor == fontColor) {
                     return 3
                 } else {
                     ;MsgBox, 攻撃可能判定へ
@@ -623,9 +644,9 @@ _afbJudgeAction(this, actionType) {
             case 5:  ; Wait(待機).
                 return 5
             case 6:  ; Restreat(退却).
-                stringColor := getColor(182, 103)
+                buttonStringColor := getColor(182, 103)
 
-                if (stringColor == fontColor) {
+                if (buttonStringColor == fontColor) {
                     return 6
                 } else {
                     ;MsgBox, 攻撃可能判定へ
@@ -840,6 +861,13 @@ _afbEngage(this, tacticsType) {
         }
     }
 
+    WinGetTitle, windowTitle, %appProcess%
+
+    if (windowTitle != "野戦") {  ; Exception handling.
+        isSubProcessRunning := false
+        return
+    }
+
     ; 1: Move forward, 2: Attack, 3: Fire, 4: Change a battle array, 5: Wait, 6: Restreat
     actionList1 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     actionList2 := [3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
@@ -961,7 +989,7 @@ _afbEngage(this, tacticsType) {
     MouseMove, 126, 170
     Sleep, sleepDurationTest1
     Click
-    ;isAfbRunning := false
+    ;isSubProcessRunning := false
 }
 
 ; Auto siege warfare (ASW).
@@ -972,7 +1000,7 @@ asw.execute := Func("_aswExecute")
 asw.fireExecuteDuration := 2000
 
 _aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
-    global isAswRunning
+    global isSubProcessRunning
     global sleepDuration1
     global sleepDuration3
     global fontColor
@@ -991,7 +1019,7 @@ _aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
     Loop 5 {
         turn++
 
-        if (!isAswRunning) {
+        if (!isSubProcessRunning) {
             return
         }
 
@@ -1020,24 +1048,100 @@ _aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
     MouseMove, 393, 458
     Sleep, sleepDuration1
     Click
-    isAswRunning := false
+    isSubProcessRunning := false
 }
 
 _aswDefend(this, tacticsType) {
-    global isAswRunning
-    isAswRunning := false
+    global isSubProcessRunning
+    isSubProcessRunning := false
 }
 
 _aswExecute(this, tacticsType) {
-    global isAswRunning
+    global isSubProcessRunning
     buttonShadowColor := 0x606060
-    isAswRunning := true
+    isSubProcessRunning := true
 
     if (getColor(224, 444) == buttonShadowColor) { ;  Player is the attacker.
         this.attack(tacticsType)
     } else { ;  Player is the defender.
         this.defend(tacticsType)
     }
+}
+
+; Skip process with notification window.
+skip := {}
+skip.isEventEnabled := true
+skip.isOkEnabled := true
+skip.isBattleResultEnabled := true
+skip.isServedAndDiedEnabled := true
+skip.isEarningsCallEnabled := true
+skip.isProcureMatchlocksEnabled := true
+skip.isReturnToPortEnabled := true
+skip.execute := Func("_skipExecute")
+
+_skipExecute(this) {
+    global skip
+    global isSubProcessRunning
+    global appProcess
+    global sleepDuration1
+    global sleepDuration2
+    isSubProcessRunning := true
+
+    while (WinActive(appProcess) && detectPhase() == 0 && isSubProcessRunning) {
+        WinGetTitle, windowTitle, %appProcess%
+
+        switch (windowTitle) {
+            case "合戦結果":
+                if (skip.isBattleResultEnabled) {
+                    Send {Enter}
+                }
+            case "収支報告":
+                if (skip.isEarningsCallEnabled) {
+                    Send {Enter}
+                }
+            case "":
+                ;MsgBox, "call normal skip"
+                if (skip.isEventEnabled && getWindowText(3) == "変数一覧") {
+                    ;MsgBox, "call skip event"
+                    MouseMove, 497, 18
+                    Sleep, sleepDuration1
+                    Click
+                } else if (skip.isOkEnabled && getWindowText(1) == "OK") {
+                    ;MsgBox, "call skip ok"
+                    Send {Enter}
+                }
+            default:
+                if (skip.isProcureMatchlocksEnabled && SubStr(windowTitle, -1) == "入手") {
+                    ;MsgBox, "call skip get teppou"
+                    MouseMove, 366, 27
+                    Sleep, sleepDuration1
+                    Click
+                } else if (skip.isReturnToPortEnabled && SubStr(windowTitle, -1) == "帰港") {
+                    ;MsgBox, "call skip return to port"
+                    MouseMove, 477, 21
+                    Sleep, sleepDuration1
+                    Click
+                } else if (skip.isServedAndDiedEnabled && SubStr(windowTitle, -4) == "死去／登場") {
+                    MouseMove, 416, 18
+                    Sleep, sleepDuration1
+                    Click
+                } else {
+                    ControlGetText, controlText, Button1, %appProcess%
+
+                    if (controlText == "閉じる") {
+                        Send {Tab}
+                        Sleep, sleepDuration1
+                        Send {Enter}
+                    }
+                }
+
+
+        }
+
+        Sleep, sleepDuration2
+    }
+
+    isSubProcessRunning := false
 }
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1071,75 +1175,116 @@ executeAutoSuspend:
 
     if (!WinActive(appProcess)) {
         Suspend, on
+        isSubProcessRunning := false
     } else {
         Suspend, off
     }
     return
 
-mainThread:
-    if (isAfbRunning || isAswRunning) {
+autoProcess:
+    if (isSubProcessRunning || !WinActive(appProcess) || !WinExist(appProcess)) {
         return
     }
 
     WinGetTitle, windowTitle, %appProcess%
     
-    switch windowTitle {
+    switch (windowTitle) {
         case "野戦発生":
             if (isAutoFieldBattleEnabled) {
-                isAfbRunning := true
-                afb.analyzeForce()                
-                afb.jindate(afb.commanderType)
-                ;afb.ownTacticsType := 1
-                afb.engage(afb.ownTacticsType)
-                isAfbRunning := false
+                autoProcessExecute()
             }
-
-            ;isAutoFieldBattleEnabled := false
         case "城攻略戦":
-            if (isAutoFieldBattleReserved) {
-                isAutoFieldBattleReserved := false
-                isAutoFieldBattleEnabled := true
-            }
-
             if (isAutoSiegeWarfareEnabled) {
-                asw.execute(1)
+                autoProcessExecute()
             }
-
-        case "戦国史SE", "戦国史FE":
-            phaseType := detectPhase()
-
-            switch phaseType {
-                case 1:  ; Personnel phase.
-                case 2:  ; Armaments phase.
-                case 3:  ; Domestic affairs phase.
-                case 4:  ; Strategy phase.
-                case 5:  ; Departure phase.
+        case "合戦結果":
+            if (isSkipNotificationEnabled) {
+                ;MsgBox, "call skip"
+                skip.execute()
             }
-        case "":
-            if (isskipNotificationEnabled) {
-                ControlGetText, controlString, Button1, %appProcess%
-
-                if (controlString == "OK") {
-                    Send {Enter}
-                    Sleep, 500
-                }
-            }
-
-        /*
-        default:
-            if (getColor(15, 21) == fontColor) {  ; Skip the battle notification window.
-                Send {Enter}
-                Sleep, 500
-            }
-            */
-
-            
-            
     }
     return
 
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Functions.
+
+autoProcessExecute() {
+    global afb
+    global asw
+    global appProcess
+    global isAutoFieldBattleEnabled
+    global isAutoSiegeWarfareEnabled
+    global isSubProcessRunning
+    global isCpuAuthorization
+    global isAutoFieldBattleReserved  ; ユーザー操作によるオート戦闘再開時の予約フラグ
+
+
+    isSubProcessRunning := true
+    isCpuAuthorization := true
+    isAutoFieldBattleReserved := false
+
+    WinGetTitle, windowTitle, %appProcess%
+    
+    ; afb.enemyDaimyo :=
+    ; afb.castle :=
+
+    While (isSubProcessRunning) {
+        switch (windowTitle) {
+            case "野戦発生":
+                if (isAutoFieldBattleEnabled) {
+                    if (isCpuAuthorization) {
+                    
+                        afb.analyzeForce()
+                        afb.jindate(afb.commanderType)
+                        afb.engage(afb.ownTacticsType)
+                        Sleep, sleepDuration2
+                        
+                        if (getWindowText(1) == "OK") {
+                            Send {Enter}
+                        }
+                    } else if (isAutoFieldBattleReserved) {
+                        oldEnemyDaimyo := afb.enemyDaimyo
+                        oldCastle := afb.castle
+                        afb.analyzeForce()
+
+                        if (afb.enemyDaimyo != oldEnemyDaimyo || afb.castle != oldCastle) {
+                            isAutoFieldBattleReserved := false
+                            isCpuAuthorization := true
+
+                            afb.jindate(afb.commanderType)
+                            afb.engage(afb.ownTacticsType)
+                            Sleep, sleepDuration2
+                            
+                            if (getWindowText(1) == "OK") {
+                                Send {Enter}
+                            }
+                        }
+                    }
+                }
+            case "城攻略戦":
+                /*
+                if (isAutoFieldBattleReserved) {
+                    isAutoFieldBattleReserved := false
+                    isAutoFieldBattleEnabled := true
+                }
+                */
+
+                if (isAutoSiegeWarfareEnabled) {
+                    asw.execute(1)
+                }
+            case "合戦結果":
+                isSubProcessRunning := false
+            default:
+                if (getWindowText(1) == "OK") {
+                    Send {Enter}
+                }
+                
+                Sleep, 2000
+        }
+    }
+
+    
+}
 
 setProcess() {
     global appProcess
@@ -1405,11 +1550,12 @@ detectPhase() {
     global funds
     global domesticAffairsWord
     
-    personnelWord = 捕虜処遇
-    armamentsWord = 徴兵
-    strategyWord = 陸路移動
-    departureWord = 陸路出陣
+    personnelWord := "捕虜処遇"
+    armamentsWord := "徴兵"
+    strategyWord := "陸路移動"
+    departureWord := "陸路出陣"
     isMatch :=
+    phase := 0
 
     WinGetText, strings, %appProcess%
     commandTexts := StrSplit(strings, "`r`n")
@@ -1418,7 +1564,7 @@ detectPhase() {
     if (!domesticAffairsWord) {
         for i, cElement in commandTexts {
             for j, pElement in pendingList1 {
-                if (cElement == pElement) { 
+                if (cElement == pElement) {
                     domesticAffairsWord := cElement
                     isMatch := true
                     break
@@ -1432,19 +1578,26 @@ detectPhase() {
     }
 
     for i, cElement in commandTexts {
-        if (cElement == domesticAffairsWord) {
-            funds := commandTexts[20]  ; Set a funds.
-            return 3
+        if (cElement == personnelWord) {
+            phase := 1
+            break
         } else if (cElement == armamentsWord) {
-            return 2
+            phase := 2
+            break
         } else if (cElement == strategyWord) {
-            return 4
+            phase := 4
+            break
         } else if (cElement == departureWord) {
-            return 5
-        } else if (cElement == personnelWord) {
-            return 1
+            phase := 5
+            break
+        } else if (domesticAffairsWord && cElement == domesticAffairsWord) {
+            funds := commandTexts[20]  ; Set a funds.
+            phase := 3
+            break
         }
     }
+
+    return phase
 }
 
 assistDomesticAffairs() {
@@ -1454,15 +1607,15 @@ assistDomesticAffairs() {
     global funds
     global oldFunds
     global fundsLimit
-    global isAssistDomesticAffairsRunning
-    isPossibleProduce := false
+    global isSubProcessRunning
+    isPossibleProduce :=
     fundsIndex := 20
     
     if (!isAssistDomesticAffairsEnabled) {
         return
     }
 
-    isAssistDomesticAffairsRunning := true
+    isSubProcessRunning := true
 
     if (funds != oldFunds) {  ; If two numbers are different, probably carried over to month.
         isPossibleProduce := true
@@ -1483,7 +1636,7 @@ assistDomesticAffairs() {
 
     Sleep, 100  ; Wait a few minutes until the main window is displayed.
     oldFunds := getWindowText(fundsIndex)  ; Get an updated funds from the main window.
-    isAssistDomesticAffairsRunning := false
+    isSubProcessRunning := false
 }
 
 executeDomesticAffairs(processType) {
@@ -1644,7 +1797,7 @@ fixedAmountDraft() {
 customMaxDraft() {
     global sleepDuration1
     global isCustomMaxDraftEnabled
-    global isCustomDraftRunning
+    global isSubProcessRunning
     global appProcess
     global targetNumberOfSoldiers
     global draftRemainLimit
@@ -1666,7 +1819,7 @@ customMaxDraft() {
         return
     }
 
-    isCustomDraftRunning := true
+    isSubProcessRunning := true
     WinGetText, strings, %appProcess%  ; Create a list of draft words.
     draftTexts := StrSplit(strings, "`r`n")
     currentSoldiers := draftTexts[16]
@@ -1675,7 +1828,7 @@ customMaxDraft() {
     Click  ; Sorted.
     Sleep, sleepDuration1
 
-    While (isPossibleDraft && isCustomDraftRunning) {      
+    While (isPossibleDraft && isSubProcessRunning) {      
         lineNumber := draftCount > 11 ? 12 : draftCount  ; Line number of draft position. 13 is the max line number having max Y position in the list.
         MouseMove, %soldiersXPos%, % firstLineYPos + lineHeight * lineNumber
         Sleep, sleepDuration1 
@@ -1707,7 +1860,7 @@ customMaxDraft() {
         }
     }
 
-    isCustomDraftRunning := false
+    isSubProcessRunning := false
 }
 
 fixedAmountSupplyHyoro() {
@@ -1717,7 +1870,7 @@ fixedAmountSupplyHyoro() {
     global isReturnsCursorFixedAmountSupplyHyoro
     global amountOfSupplyHyoro
     global isSupplyHyoroMultipleEnabled
-    global isSupplyHyoroRunning
+    global isSubProcessRunning
     currentAmount :=  ; Index is 8
     increaseAmount :=  ; Index is 3
     sliderBeginXPos := 73
@@ -1734,7 +1887,7 @@ fixedAmountSupplyHyoro() {
         return
     }
     
-    isSupplyHyoroRunning := true
+    isSubProcessRunning := true
 
     if (isReturnsCursorFixedAmountSupplyHyoro) {    
         MouseGetPos, currentMouseXPos, currentMouseYPos
@@ -1749,7 +1902,7 @@ fixedAmountSupplyHyoro() {
     remain := maxAmount - currentAmount  ; How many more possible to supply are hyoro for a castle.
 
     if (remain == 0) {  ; Hyoro are full.
-        isSupplyHyoroRunning := false
+        isSubProcessRunning := false
         return
     }
 
@@ -1774,7 +1927,7 @@ fixedAmountSupplyHyoro() {
         numericalError := % maxAllowed - currentAmount
 
         if (numericalError == 0) {
-            isSupplyHyoroRunning := false
+            isSubProcessRunning := false
 
             if (isReturnsCursorFixedAmountSupplyHyoro) {    
                 MouseMove, %currentMouseXPos%, %currentMouseYPos%
@@ -1832,7 +1985,7 @@ fixedAmountSupplyHyoro() {
         MouseMove, %currentMouseXPos%, %currentMouseYPos%
     }
 
-    isSupplyHyoroRunning := false
+    isSubProcessRunning := false
 }
 
 
@@ -1840,7 +1993,7 @@ maxSupplyHyoro() {
     global sleepDuration1
     global isMaxSupplyHyoroEnabled
     global isReturnsCursorMaxSupplyHyoro
-    global isSupplyHyoroRunning
+    global isSubProcessRunning
     sliderBeginXPos := 73
     sliderEndXPos := 169
     sliderYPos := 313
@@ -1849,7 +2002,7 @@ maxSupplyHyoro() {
         return
     }
 
-    isSupplyHyoroRunning := true
+    isSubProcessRunning := true
 
     if (isReturnsCursorMaxSupplyHyoro) {
         MouseGetPos, currentMouseXPos, currentMouseYPos
@@ -1868,13 +2021,13 @@ maxSupplyHyoro() {
         MouseClickDrag, LEFT, %sliderBeginXPos%, %sliderYPos%, %sliderEndXPos%, %sliderYPos%
     }
 
-    isSupplyHyoroRunning := false
+    isSubProcessRunning := false
 }
 
 customManageCorpsFunds() {
     global sleepDuration1
     global isCustomManageCorpsFundsEnabled
-    global isCustomManageCorpsFundsRunning
+    global isSubProcessRunning
     global paymentAmount
     global collectionAmount
     global supplyMatchlockAmount
@@ -1889,7 +2042,7 @@ customManageCorpsFunds() {
     currentCollectionAmount := corpsFundsTexts[9]
     currentSupplyMatchlockAmount := corpsFundsTexts[16]
     inputXPos := 352
-    isCustomManageCorpsFundsRunning := true
+    isSubProcessRunning := true
     clipSaved := ClipboardAll
 
     if (paymentAmount > 0) {
@@ -1933,7 +2086,7 @@ customManageCorpsFunds() {
 
     Clipboard = %clipSaved%  ; Restore to the clipboard text.
     clipSaved =  ; Release the memory.
-    isCustomManageCorpsFundsRunning := false
+    isSubProcessRunning := false
 }
 
 setTooltipText() {
@@ -2012,16 +2165,11 @@ MButton:: ; Quick save.
 
     switch windowTitle {
         case "野戦発生":
-            isAutoFieldBattleEnabled := false
-            isAfbRunning := false
+            isCpuAuthorization := false
         case "野戦":
-            isAutoFieldBattleEnabled := false
-            isAfbRunning := false
+            isCpuAuthorization := false
         case "城攻略戦":
-            if (isAswRunning) {
-                ;MsgBox, "Stop ASW"
-                isAswRunning := false
-            }
+            isCpuAuthorization := false
         case "戦国史SE", "戦国史FE":
             save()
     }
@@ -2038,27 +2186,27 @@ XButton1::  ; Main action button.
         case "徴兵":  ; Execuete a command of the fixed amount draft.
             fixedAmountDraft()
         case "城兵糧補充":
-            if (!isSupplyHyoroRunning) {
+            if (!isSubProcessRunning) {
                 fixedAmountSupplyHyoro()
             }
         case "軍団資産":
-            if (!isCustomManageCorpsFundsRunning) {
+            if (!isSubProcessRunning) {
                 customManageCorpsFunds()
             }
         case "野戦発生":
-            if (!isAfbRunning) {
+            if (!isSubProcessRunning) {
                 MsgBox, "野戦発生"
                 afb.jindate(1)  ; The supreme commander will be selected from a smallest unit of the commander. 
             }
         case "城攻略戦":
-            if (isAswRunning) {
-                isAswRunning := false
+            if (isSubProcessRunning) {
+                isSubProcessRunning := false
             } else {
                 asw.execute(0)
             }
         case "戦国史SE", "戦国史FE":
             phaseType := detectPhase()
-
+        
             switch phaseType {
                 case 1:  ; Personnel phase.
                 case 2:  ; Armaments phase.
@@ -2079,18 +2227,18 @@ XButton2::
 
     switch windowTitle {
         case "徴兵":  ; Execuete a command of the custom max draft. If the command is running, abort it.
-            if (isCustomDraftRunning) {
-                isCustomDraftRunning := false
+            if (isSubProcessRunning) {
+                isSubProcessRunning := false
             } else {
                 customMaxDraft()
             }       
         case "城兵糧補充":
-            if (!isSupplyHyoroRunning) {
+            if (!isSubProcessRunning) {
                 maxSupplyHyoro()
             }
         case "城攻略戦":
-            if (isAswRunning) {
-                isAswRunning := false
+            if (isSubProcessRunning) {
+                isSubProcessRunning := false
             } else {
                 asw.execute(1)
             }
@@ -2116,7 +2264,9 @@ Home::
 
 Insert::
     WinGetTitle, windowTitle, %appProcess%
-    MsgBox, %windowTitle%
+    wtext := SubStr(windowTitle, 1)
+    MsgBox, %wtext%
+    ;MsgBox, %windowTitle%
     return
 
 Delete::
@@ -2134,10 +2284,21 @@ Break::
     ;afb.engage(3)
     ;asw.execute()
     ;afb.analyzeForce()
+    
+    ;wtext := getWindowText(3)
+    ;MsgBox, % wtext
+
+    ;skip.execute()
     return
 
 End::
     isAutoFieldBattleReserved := true  ; ユーザー操作によるオート戦闘再開時の予約フラグ
+    ;MsgBox, %isSubProcessRunning%
+
+    ;winText := getWindowText(10)
+    ;regText := RegExReplace(winText, "で.+$", "")
+    ;MsgBox, % regText
+ 
     return
 
 
