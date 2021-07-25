@@ -3,6 +3,8 @@
 ; @author "P-774LSI / https://github.com/P774LSI/sengokushi-autosave"
 ; @lisence "CC0"
 
+#include .\lib\Vis2.ahk
+
 /*
 概要: 戦国史SE, 戦国史FEで「オートセーブ」・「クイックセーブ」を行うユーザー操作補助スクリプトです。
 また拡張機能として「内政アシスト」・「足軽・城兵を指定数だけ徴兵」・「足軽数が指定数以上の人物はすべて最大まで徴兵」・「兵糧を指定数だけ補充」・「兵糧を最大まで補充」・「軍団資産の初期数値入力」
@@ -246,6 +248,8 @@ isAutoFieldBattleReserved := false
 ; Skip notification window.
 isSkipNotificationEnabled := true
 
+
+isOcrEnabled := true
 
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1010,6 +1014,7 @@ asw.execute := Func("_aswExecute")
 _aswAnalyzeForce(this) {
     global afb
     global playerDaimyo
+    global isOcrEnabled
     isAttacker := false
     forceRatio :=
 
@@ -1045,9 +1050,10 @@ _aswAnalyzeForce(this) {
         this.ownSoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
         this.enemySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
     }
-    
+    /*
     MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n"
     . this.root " [asw.root]`n"
+    */
 
     if (isOcrEnabled) {
         WinGetPos, x, y, width, height, %appProcess%
@@ -1055,7 +1061,9 @@ _aswAnalyzeForce(this) {
         rectY := y + 165
         rectW := 30
         rectH := 15
-        ocrResult := 
+        ocrResult := OCR([rectX, rectY, rectW, rectH])
+
+        MsgBox, % ocrResult
     }
 }
 
