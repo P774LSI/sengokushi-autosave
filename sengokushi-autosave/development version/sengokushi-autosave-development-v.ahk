@@ -715,15 +715,14 @@ _afbInputAction(this, actionType) {
 }
 
 _afbUpdateBattleArray(this, turn) {
-    global afb
     enemyColor := 0xFF7D5A
     ownColor :=
     pickedColor :=
     enemyFrontPos :=
     ownFrontPos :=
-    oldEnemyUnits := afb.enemyUnits
-    oldEnemyFrontPos := afb.enemyUnitFrontPos
-    oldDistance := afb.arrayDistance
+    oldEnemyUnits := this.enemyUnits
+    oldEnemyFrontPos := this.enemyUnitFrontPos
+    oldDistance := this.arrayDistance
     isExistUnit :=
     checkColorXPos :=
     checkColorYPos :=
@@ -749,101 +748,105 @@ _afbUpdateBattleArray(this, turn) {
 
     if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos - 1], checkColorYPosList[oldEnemyFrontPos - 1], 2)) {
         pickedColor := getColor(743, 345)
-        afb.enemyUnitFrontPos := oldEnemyFrontPos - 1
-        afb.enemyTookPresumptionAction := 1  ;  Presumption action.
+        this.enemyUnitFrontPos := oldEnemyFrontPos - 1
+        this.enemyTookPresumptionAction := 1  ;  Presumption action.
 
         if (pickedColor == 0xFFFFFF) {
-            afb.enemyBattleArray[0] := oldEnemyFrontPos - 1
+            this.enemyBattleArray[0] := oldEnemyFrontPos - 1
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.enemyBattleArray[1] := oldEnemyFrontPos
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[1] := oldEnemyFrontPos
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
             } else {
-                afb.enemyBattleArray[1] := 0
-                afb.enemyBattleArray[2] := oldEnemyFrontPos
+                this.enemyBattleArray[1] := 0
+                this.enemyBattleArray[2] := oldEnemyFrontPos
             }
         } else {
-            afb.enemyBattleArray[0] := 0
+            this.enemyBattleArray[0] := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.enemyBattleArray[1] := oldEnemyFrontPos
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[1] := oldEnemyFrontPos
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
             } else {
-                afb.enemyBattleArray[1] := 0
-                afb.enemyBattleArray[2] := oldEnemyFrontPos
+                this.enemyBattleArray[1] := 0
+                this.enemyBattleArray[2] := oldEnemyFrontPos
             }
         }
     } else if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos], 2)) {
         pickedColor := getColor(743, 345)
-        afb.enemyUnitFrontPos := oldEnemyFrontPos
-        afb.enemyTookPresumptionAction := 0
+        this.enemyUnitFrontPos := oldEnemyFrontPos
+        this.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            afb.enemyBattleArray[0] := oldEnemyFrontPos
+            this.enemyBattleArray[0] := oldEnemyFrontPos
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.enemyBattleArray[1] := 0
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[1] := 0
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
             }
         } else {
-            afb.enemyBattleArray[0] := 0
+            this.enemyBattleArray[0] := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.enemyBattleArray[1] := 0
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[1] := 0
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
             }
         }
     } else {
         pickedColor := getColor(743, 345)
-        afb.enemyUnitFrontPos := oldEnemyFrontPos + 1
-        afb.enemyTookPresumptionAction := 0
+        this.enemyUnitFrontPos := oldEnemyFrontPos + 1
+        this.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            afb.enemyBattleArray[0] := oldEnemyFrontPos + 1
-            afb.enemyBattleArray[1] := 0
-            afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
+            this.enemyBattleArray[0] := oldEnemyFrontPos + 1
+            this.enemyBattleArray[1] := 0
+            this.enemyBattleArray[2] := oldEnemyFrontPos + 2
         } else {
             pickedColor := getColor(743, 447)
-            afb.enemyBattleArray[0] := 0
+            this.enemyBattleArray[0] := 0
 
             if (pickedColor == 0xFFFFFF) {
-                afb.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
             } else {
-                afb.enemyBattleArray[1] := 0
-                afb.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemyBattleArray[1] := 0
+                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
             }
         }               
     }
 
 
 
-    afb.ownUnitFrontPos := Max(afb.ownBattleArray[0], afb.ownBattleArray[1], afb.ownBattleArray[2])
-    afb.arrayDistance := afb.enemyUnitFrontPos - afb.ownUnitFrontPos  ; Calc the distance.
+    this.ownUnitFrontPos := Max(this.ownBattleArray[0], this.ownBattleArray[1], this.ownBattleArray[2])
+    this.arrayDistance := this.enemyUnitFrontPos - this.ownUnitFrontPos  ; Calc the distance.
 
-    if (afb.arrayDistance < oldDistance) {
-        afb.enemyTookPresumptionAction := 1    
+    if (this.arrayDistance < oldDistance) {
+        this.enemyTookPresumptionAction := 1    
     } else {
-        if (oldEnemyUnits > afb.enemyUnits) {
-            afb.enemyTookPresumptionAction := 1
+        if (oldEnemyUnits > this.enemyUnits) {
+            this.enemyTookPresumptionAction := 1
         } else {
-            afb.enemyTookPresumptionAction := 0
+            this.enemyTookPresumptionAction := 0
         }
     }
 
 
-    ;MsgBox, % afb.ownBattleArray[0] "`n" afb.ownBattleArray[1] "`n" afb.ownBattleArray[2] "`n" afb.enemyBattleArray[0] "`n" afb.enemyBattleArray[1] "`n" afb.enemyBattleArray[2]
-    ;MsgBox, % afb.ownUnits "[afb.ownUnits]`n" afb.enemyUnits "[afb.enemyUnits]`n" afb.ownUnitFrontPos "[afb.ownUnitFrontPos]`n" afb.enemyUnitFrontPos "[afb.enemyUnitFrontPos]`n" afb.arrayDistance "[afb.arrayDistance]`n" afb.enemyTookPresumptionAction "[afb.enemyTookPresumptionAction]"
+    MsgBox, % this.ownBattleArray[0] " this.ownBattleArray[0]]`n" this.ownBattleArray[1] " [this.ownBattleArray[1]]`n" this.ownBattleArray[2] " [this.ownBattleArray[1]]`n"
+    . this.enemyBattleArray[0] " [this.enemyBattleArray[0]]`n" this.enemyBattleArray[1] " [this.enemyBattleArray[1]]`n" this.enemyBattleArray[2] " [this.enemyBattleArray[2]]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
+    . this.ownUnits " [this.ownUnits]`n" this.enemyUnits " [this.enemyUnits]`n" this.ownUnitFrontPos " [this.ownUnitFrontPos]`n" this.enemyUnitFrontPos "[this.enemyUnitFrontPos]`n" this.arrayDistance " [this.arrayDistance]`n" this.enemyTookPresumptionAction " [this.enemyTookPresumptionAction]"
+
+    ;MsgBox, % this.ownBattleArray[0] "`n" this.ownBattleArray[1] "`n" this.ownBattleArray[2] "`n" this.enemyBattleArray[0] "`n" this.enemyBattleArray[1] "`n" this.enemyBattleArray[2]
+    ;MsgBox, % this.ownUnits "[this.ownUnits]`n" this.enemyUnits "[this.enemyUnits]`n" this.ownUnitFrontPos "[this.ownUnitFrontPos]`n" this.enemyUnitFrontPos "[this.enemyUnitFrontPos]`n" this.arrayDistance "[this.arrayDistance]`n" this.enemyTookPresumptionAction "[this.enemyTookPresumptionAction]"
 }
 
 
@@ -1043,8 +1046,8 @@ _aswAnalyzeForce(this) {
 
     ; Determines whether a player is attacker.
     if (playerDaimyo) {
-        MsgBox, % playerDaimyo
-        if (infoTexts[13] == playerDaimyo + "家") {
+        ;MsgBox, % playerDaimyo
+        if (infoTexts[13] == playerDaimyo . "家") {
             isAttacker := true
             this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
         } else {
@@ -1072,7 +1075,7 @@ _aswAnalyzeForce(this) {
     }
 
     this.root := infoTexts[19]
-    sliderRate := this.ownSoldiers / this.enemySoldiers
+    soldiersRate := this.ownSoldiers / this.enemySoldiers
 
     if (isOcrEnabled) {
         WinGetPos, x, y, width, height, %appProcess%
@@ -1081,6 +1084,11 @@ _aswAnalyzeForce(this) {
         rectW := 32
         rectH := 16
         ocrResult := OCR([rectX, rectY, rectW, rectH])
+
+        if (ocrResult is not digit) {  ; Try again.
+            Sleep, 100
+            ocrResult := OCR([rectX, rectY, rectW, rectH])
+        }
 
         if (ocrResult is digit) {
             ;MsgBox, % ocrResult
@@ -1096,17 +1104,17 @@ _aswAnalyzeForce(this) {
 
     if (isAttacker) {
         if (castleFallsEstimation) {
-            if (sliderRate > 50) {
+            if (soldiersRate > 50) {
                 this.ownTacticsType := 1  ; Storm.
             } else if (castleFallsEstimation <= 2) {
                 this.ownTacticsType := 0  ; Wait.
-            } else if (sliderRate > 20) {
+            } else if (soldiersRate > 20) {
                 this.ownTacticsType := 1
             } else if (castleFallsEstimation <= 3) {
                 this.ownTacticsType := 0
-            } else if (sliderRate > 8) {
+            } else if (soldiersRate > 8) {
                 this.ownTacticsType := 1
-            } else if (sliderRate > 0.5 || sliderRate < 1.8) {
+            } else if (soldiersRate > 0.5 || soldiersRate < 1.8) {
                 this.ownTacticsType := 1
             } else {
                 this.ownTacticsType := 0
@@ -2465,12 +2473,6 @@ End::
     ;regText := RegExReplace(winText, "で.+$", "")
     ;MsgBox, % regText
 
-    WinGetPos, x, y, width, height, %appProcess%
-    MsgBox, % x
-    rectX := x + 384
-    rectY := y + 165
-    rectW := 30
-    rectH := 15
  
     return
 
