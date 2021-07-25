@@ -296,7 +296,7 @@ sleepDurationTest1 := 500
 isMainTimerRequirement := true
 
 isCpuAuthorization := false
-
+playerDaimyo :=
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
 
@@ -345,7 +345,6 @@ afb.generalListTop := 168
 afb.generalListRowHeight := 16
 
 afb.castle :=
-afb.playerDaimyo :=
 afb.enemyDaimyo :=
 afb.ownSoldiers :=
 afb.enemySoldiers :=
@@ -390,6 +389,7 @@ _afbAnalyzeForce(this) {
     global infantryCoefficient
     global matchlockBaseCoefficient
     global matchlockCoefficient
+    global playerDaimyo
     ownForceStrength :=
     enemyForceStrength :=
     forceRatio :=
@@ -404,8 +404,8 @@ _afbAnalyzeForce(this) {
 
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
+    playerDaimyo := RegExReplace(infoTexts[11], "家兵力", "")
     this.castle := RegExReplace(infoTexts[10], "で.+$", "")
-    this.playerDaimyo := RegExReplace(infoTexts[11], "家兵力", "")
     this.enemyDaimyo := RegExReplace(infoTexts[12], "家兵力", "")
     this.ownCavalry := RegExReplace(infoTexts[13], "[^0-9]+", "")
     this.enemyCavalry := RegExReplace(infoTexts[14], "[^0-9]+", "")
@@ -414,7 +414,7 @@ _afbAnalyzeForce(this) {
     this.ownMatchlocks := RegExReplace(infoTexts[17], "[^0-9]+", "")
     this.enemyMatchlocks := RegExReplace(infoTexts[18], "[^0-9]+", "")
 
-    ;MsgBox, % this.playerDaimyo "`n" this.enemyDaimyo "`n" this.ownCavalry "`n" this.enemyCavalry "`n" this.ownSoldiers "`n" this.enemySoldiers "`n" this.ownMatchlocks "`n" this.enemyMatchlocks "`n"
+    ;MsgBox, % playerDaimyo "`n" this.enemyDaimyo "`n" this.ownCavalry "`n" this.enemyCavalry "`n" this.ownSoldiers "`n" this.enemySoldiers "`n" this.ownMatchlocks "`n" this.enemyMatchlocks "`n"
 
     ownForceStrength := this.ownCavalry * cavalryCoefficient + this.ownSoldiers * infantryCoefficient
     enemyForceStrength := this.enemyCavalry * cavalryCoefficient + this.enemySoldiers * infantryCoefficient
@@ -849,7 +849,7 @@ _afbEngage(this, tacticsType) {
     this.arrayDistance :=  ; Range 1-5.
     this.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 
-    ; Determine whether or not a surprise attack has occurred.
+    ; Determines whether or not a surprise attack has occurred.
     if (getWindowText(1) == "OK") {
         Send {Enter}
         sleep, sleepDuration2
@@ -994,10 +994,70 @@ _afbEngage(this, tacticsType) {
 
 ; Auto siege warfare (ASW).
 asw := {}
+
+asw.enemyDaimyo :=
+asw.ownSoldiers :=        
+asw.enemySoldiers :=
+asw.root :=
+asw.ownTacticsType :=
+
+asw.fireExecuteDuration := 2000
+asw.analyzeForce := Func("_aswAnalyzeForce")
 asw.attack := Func("_aswAttack")
 asw.defend := Func("_aswDefend")
 asw.execute := Func("_aswExecute")
-asw.fireExecuteDuration := 2000
+
+_aswAnalyzeForce(this) {
+    global afb
+    global playerDaimyo
+    isAttacker := false
+    forceRatio :=
+
+    WinGetText, strings, %appProcess%
+    infoTexts := StrSplit(strings, "`r`n")
+    ;MsgBox, % infoTexts[21]
+
+    ; Determines whether a player is attacker.
+    if (playerDaimyo) {
+        if (infoTexts[13] == playerDaimyo + "家") {
+            isAttacker := true
+            this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
+        } else {
+            this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
+        }
+    } else {
+        if (getColor(224, 444) == buttonShadowColor) {
+            isAttacker := true
+            playerDaimyo := RegExReplace(infoTexts[13], "家$", "")
+            this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
+        } else {
+            playerDaimyo := RegExReplace(infoTexts[14], "家$", "")
+            this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
+        }
+    }
+
+    this.root := infoTexts[19]
+
+    if (isAttacker) {
+        this.ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+        this.enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+    } else {
+        this.ownSoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
+        this.enemySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
+    }
+    
+    MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n"
+    . this.root " [asw.root]`n"
+
+    if (isOcrEnabled) {
+        WinGetPos, x, y, width, height, %appProcess%
+        rectX := x + 384
+        rectY := y + 165
+        rectW := 30
+        rectH := 15
+        ocrResult := 
+    }
+}
 
 _aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
     global isSubProcessRunning
@@ -1270,7 +1330,14 @@ autoProcessExecute() {
                 */
 
                 if (isAutoSiegeWarfareEnabled) {
-                    asw.execute(1)
+                    if (isCpuAuthorization) {
+                        asw.analyzeForce()
+                        asw.execute(asw.ownTacticsType)
+                    }
+                }
+
+                if (getWindowText(1) == "OK") {
+                    Send {Enter}
                 }
             case "合戦結果":
                 isSubProcessRunning := false
@@ -1278,7 +1345,7 @@ autoProcessExecute() {
                 if (getWindowText(1) == "OK") {
                     Send {Enter}
                 }
-                
+
                 Sleep, 2000
         }
     }
@@ -2278,7 +2345,7 @@ Break::
     ;colorArray := [0x000000, 0xFFFFFF]
     ;colorArray := [0xFFFFFF]
     ;compareColors(colorArray, 641, 91, 2)
-    afb.jindate(1)
+    ;afb.jindate(1)
     ;afb.test()
     ;afb.inputAction()
     ;afb.engage(3)
@@ -2289,6 +2356,8 @@ Break::
     ;MsgBox, % wtext
 
     ;skip.execute()
+
+    asw.analyzeForce()
     return
 
 End::
@@ -2298,6 +2367,13 @@ End::
     ;winText := getWindowText(10)
     ;regText := RegExReplace(winText, "で.+$", "")
     ;MsgBox, % regText
+
+    WinGetPos, x, y, width, height, %appProcess%
+    MsgBox, % x
+    rectX := x + 384
+    rectY := y + 165
+    rectW := 30
+    rectH := 15
  
     return
 
