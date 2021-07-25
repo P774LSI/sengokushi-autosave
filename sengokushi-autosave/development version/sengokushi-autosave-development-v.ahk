@@ -240,7 +240,7 @@ battleWaitDuration := 1000
 matchlockForce := 70
 stuckRate := 1.1
 isAutoFieldBattleEnabled := true
-isAutoSiegeWarfareEnabled := false
+isAutoSiegeWarfareEnabled := true
 
 isAutoFieldBattleReserved := false
 
@@ -276,6 +276,7 @@ subWindow1checkBoxYPos := 94  ; Client coordinate. Not window cordinate !
 grayOutColor := 0x808080  ; String color of a gray out.
 fontColor := 0x000000  ; Default font color.
 lineColor := 0xE0E0E0  ; Line color of a list.
+uiPartColor := 0xF0F0F0
 
 funds := 0
 oldFunds := 0
@@ -295,8 +296,7 @@ infantryCoefficient := 1
 matchlockBaseCoefficient := 0.6
 matchlockCoefficient := matchlockBaseCoefficient * matchlockForce / 10 * stuckRate
 
-; test
-sleepDurationTest1 := 500
+
 isMainTimerRequirement := true
 
 isCpuAuthorization := false
@@ -462,11 +462,12 @@ _afbAnalyzeForce(this) {
 _afbJindate(this, commanderType) {
     global isAutoFieldBattleEnabled
     global isSubProcessRunning
+    global isCpuAuthorization
     global sleepDuration1
+    global sleepDuration2
     global grayOutColor
     global fontColor
     global lineColor
-    global sleepDurationTest1
     global battleWaitDuration
     honzinStringColor :=
     isBottom := false
@@ -483,20 +484,27 @@ _afbJindate(this, commanderType) {
     }
 
     Sleep, battleWaitDuration
-
-    
     color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
-
+    
     if (color1 != lineColor) {
         commanderType := 0  ; Only supreme commander.
+    } else {
+        color2 := getColor(518, 462)
+
+        if (color2 == fontColor) {
+            commanderType := 9  ; Commander is daimyou.
+            MsgBox, "type 9"
+        }
     }
+
+    
 
     switch commanderType {
         case 1:  ; The commander having a highest leadership ability with the field battle.
             MouseMove, 353, 160
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click  ; Click a column header to ordered the list by the leadership ability.
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
 
             if (getColor(105, 175) == fontColor) {  ; To exclude a direct retainers.
                 while (!isBottom) {
@@ -507,7 +515,7 @@ _afbJindate(this, commanderType) {
 
                     if (color2 != fontColor && color1 == lineColor) {
                         MouseMove, 105, % 175 + this.generalListRowHeight * counter
-                        Sleep, sleepDurationTest1
+                        Sleep, sleepDuration1
                         Click  ; Choose a commander.
                         isBottom := true
                     } else if (color1 != lineColor) {
@@ -519,7 +527,7 @@ _afbJindate(this, commanderType) {
                 }
             } else {
                 MouseMove, 353, 174
-                Sleep, sleepDurationTest1
+                Sleep, sleepDuration1
                 Click  ; Choose a commander.
             }
 
@@ -536,7 +544,7 @@ _afbJindate(this, commanderType) {
         
         case 3:  ; The commander having the smallest units.
             MouseMove, 210, 160
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
             
             While (!isBottom) {
@@ -558,7 +566,7 @@ _afbJindate(this, commanderType) {
             ;MsgBox, %counter% [counter]
 
             MouseMove, 210, % -7 + this.generalListTop + this.generalListRowHeight * (counter - 1)
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
             honzinStringColor := getColor(263, 483)
 
@@ -571,35 +579,42 @@ _afbJindate(this, commanderType) {
 
     if (commanderType) {
         MouseMove, 290, 485  ; Hover the cursor on the `Honjin(本陣)` button.
-        Sleep, sleepDurationTest1
+        Sleep, sleepDuration1
         Click
         
         color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
 
         if (color1 != lineColor) {
             MouseMove, 772, 20
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         } else {
             ; Set all the general to the first group.
             MouseMove, 110, % this.generalListTop + 8
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             MouseClickDrag, LEFT, 0, 0, 0, 400, 5, R
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             MouseMove, 110, 485
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             MouseMove, 772, 20
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         }
     } else {
         Click
         Sleep, sleepDuration2
         MouseMove, 772, 20
-        Sleep, sleepDurationTest1
+        Sleep, sleepDuration1
         Click
+    }
+
+    Sleep, sleepDuration2
+    WinGetTitle, windowTitle, %appProcess%
+
+    if (windowTitle != "野戦") {
+        isCpuAuthorization := false
     }
 }
 
@@ -662,7 +677,6 @@ _afbJudgeAction(this, actionType) {
 
 _afbInputAction(this, actionType) {
     global sleepDuration1
-    global sleepDurationTest1
     leftButtonXPos := 62
     rightButtonXPos := 186
     moveForwardYPos := 45
@@ -675,27 +689,27 @@ _afbInputAction(this, actionType) {
     switch actionType {
         case 1:  ; Move forward(前進).
             MouseMove, %leftButtonXPos%, %moveForwardYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         case 2:  ; Attack(攻撃).
             MouseMove, %rightButtonXPos%, %attackYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         case 3:  ; Fire(鉄砲射撃).
             MouseMove, %leftButtonXPos%, %fireYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         case 4:  ; Change a battle array(先陣／第二陣 交代).
             MouseMove, %rightButtonXPos%, %changeBattleArrayYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         case 5:  ; Wait(待機).
             MouseMove, %leftButtonXPos%, %waitYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
         case 6:  ; Restreat(退却).
             MouseMove, %rightButtonXPos%, %retreatYPos%
-            Sleep, sleepDurationTest1
+            Sleep, sleepDuration1
             Click
     }
 }
@@ -840,7 +854,6 @@ _afbEngage(this, tacticsType) {
     global sleepDuration1
     global sleepDuration2
     global sleepDuration3
-    global sleepDurationTest1
     global grayOutColor
     global fontColor
     turn := 0
@@ -991,7 +1004,7 @@ _afbEngage(this, tacticsType) {
 */
 
     MouseMove, 126, 170
-    Sleep, sleepDurationTest1
+    Sleep, sleepDuration1
     Click
     ;isSubProcessRunning := false
 }
@@ -1004,6 +1017,8 @@ asw.ownSoldiers :=
 asw.enemySoldiers :=
 asw.root :=
 asw.ownTacticsType :=
+asw.ownHyoro :=
+asw.enemyHyoro :=
 
 asw.fireExecuteDuration := 2000
 asw.analyzeForce := Func("_aswAnalyzeForce")
@@ -1015,23 +1030,30 @@ _aswAnalyzeForce(this) {
     global afb
     global playerDaimyo
     global isOcrEnabled
+    global fontColor
+    global uiPartColor
     isAttacker := false
     forceRatio :=
+    this.enemyHyoro := ""
+    this.ownHyoro := ""
 
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
-    ;MsgBox, % infoTexts[21]
+    ;MsgBox, % playerDaimyo + "家"
 
     ; Determines whether a player is attacker.
     if (playerDaimyo) {
+        MsgBox, % playerDaimyo
         if (infoTexts[13] == playerDaimyo + "家") {
             isAttacker := true
             this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
         } else {
+            
+            MsgBox, % playerDaimyo + "家"
             this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
         }
     } else {
-        if (getColor(224, 444) == buttonShadowColor) {
+        if (getColor(175, 445) != uiPartColor || getColor(178, 457) != uiPartColor) {
             isAttacker := true
             playerDaimyo := RegExReplace(infoTexts[13], "家$", "")
             this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
@@ -1041,8 +1063,6 @@ _aswAnalyzeForce(this) {
         }
     }
 
-    this.root := infoTexts[19]
-
     if (isAttacker) {
         this.ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
         this.enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
@@ -1050,54 +1070,84 @@ _aswAnalyzeForce(this) {
         this.ownSoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
         this.enemySoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
     }
-    /*
-    MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n"
-    . this.root " [asw.root]`n"
-    */
+
+    this.root := infoTexts[19]
+    sliderRate := this.ownSoldiers / this.enemySoldiers
 
     if (isOcrEnabled) {
         WinGetPos, x, y, width, height, %appProcess%
-        rectX := x + 384
-        rectY := y + 165
-        rectW := 30
-        rectH := 15
+        rectX := x + 382
+        rectY := y + 164
+        rectW := 32
+        rectH := 16
         ocrResult := OCR([rectX, rectY, rectW, rectH])
 
-        MsgBox, % ocrResult
+        if (ocrResult is digit) {
+            ;MsgBox, % ocrResult
+            if (isAttacker) {
+                this.enemyHyoro := ocrResult
+                castleFallsEstimation := Ceil(this.enemyHyoro / this.enemySoldiers)
+            } else {
+                this.ownHyoro := ocrResult
+                castleFallsEstimation := Ceil(this.ownHyoro / this.ownSoldiers)
+            }
+        }
     }
+
+    if (isAttacker) {
+        if (castleFallsEstimation) {
+            if (sliderRate > 50) {
+                this.ownTacticsType := 1  ; Storm.
+            } else if (castleFallsEstimation <= 2) {
+                this.ownTacticsType := 0  ; Wait.
+            } else if (sliderRate > 20) {
+                this.ownTacticsType := 1
+            } else if (castleFallsEstimation <= 3) {
+                this.ownTacticsType := 0
+            } else if (sliderRate > 8) {
+                this.ownTacticsType := 1
+            } else if (sliderRate > 0.5 || sliderRate < 1.8) {
+                this.ownTacticsType := 1
+            } else {
+                this.ownTacticsType := 0
+            }
+        } else {
+            isCpuAuthorization := false
+        }
+    } else {
+        if (castleFallsEstimation) {
+            if (castleFallsEstimation > 5) {
+                this.ownTacticsType := 0  ; Wait.
+            } else {
+                this.ownTacticsType := 1  ; Escape from a castle in stages.
+            }
+        } else {
+            isCpuAuthorization := false
+        }
+    }
+
+
+    MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n" this.root " [asw.root]`n"
+    . this.ownHyoro " [asw.ownHyoro]`n" this.enemyHyoro " [asw.enemyHyoro]`n" castleFallsEstimation " [castleFallsEstimation]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
+
+    return isAttacker
 }
 
-_aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
+_aswAttack(this) {  ; tacticsType 0: wait, 1: storm
     global isSubProcessRunning
     global sleepDuration1
     global sleepDuration3
     global fontColor
     turn := 0
-    ownSoldiers :=
-    enemySoldiers :=
 
     ;MsgBox, "[asw.attack() call]"
 
-    WinGetText, strings, %appProcess%
-    infoTexts := StrSplit(strings, "`r`n")
-    ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
-    enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
     Sleep, this.fireExecuteDuration
 
     Loop 5 {
         turn++
-
-        if (!isSubProcessRunning) {
-            return
-        }
-
-        if (turn != 1) {
-            ownSoldiers := RegExReplace(infoTexts[21], "[^0-9]+", "")
-            enemySoldiers := RegExReplace(infoTexts[22], "[^0-9]+", "")
-            ;MsgBox, % turn "`n" ownSoldiers "`n" enemySoldiers
-        }
         
-        if (tacticsType && getColor(176, 447) == fontColor) {
+        if (this.ownTacticsType && getColor(176, 447) == fontColor) {
             Sleep, sleepDuration3
             MouseMove, 173, 446
             Sleep, sleepDuration1
@@ -1116,14 +1166,45 @@ _aswAttack(this, tacticsType) {  ; tacticsType 0: wait, 1: storm
     MouseMove, 393, 458
     Sleep, sleepDuration1
     Click
-    isSubProcessRunning := false
 }
 
-_aswDefend(this, tacticsType) {
+_aswDefend(this) {
     global isSubProcessRunning
-    isSubProcessRunning := false
+    global sleepDuration1
+    global sleepDuration3
+    global fontColor
+    turn := 0
+
+    ;MsgBox, "[asw.defend() call]"
+
+    Sleep, this.fireExecuteDuration
+
+    Loop 5 {
+        turn++
+        
+        if (this.tacticsType && getColor(593, 447) == fontColor) {
+            Sleep, sleepDuration3
+            MouseMove, 593, 447
+            Sleep, sleepDuration1
+            Click
+            Sleep, sleepDuration1
+            ; 作りかけ
+        } else {
+            Sleep, sleepDuration3
+            MouseMove, 614, 472
+            Sleep, sleepDuration1
+            Click 
+            Sleep, sleepDuration1         
+        }
+    }
+
+    ; Close the window.
+    MouseMove, 393, 458
+    Sleep, sleepDuration1
+    Click
 }
 
+/*
 _aswExecute(this, tacticsType) {
     global isSubProcessRunning
     buttonShadowColor := 0x606060
@@ -1135,6 +1216,7 @@ _aswExecute(this, tacticsType) {
         this.defend(tacticsType)
     }
 }
+*/
 
 ; Skip process with notification window.
 skip := {}
@@ -1305,7 +1387,7 @@ autoProcessExecute() {
                         afb.analyzeForce()
                         afb.jindate(afb.commanderType)
                         afb.engage(afb.ownTacticsType)
-                        Sleep, sleepDuration2
+                        Sleep, 1500
                         
                         if (getWindowText(1) == "OK") {
                             Send {Enter}
@@ -1321,7 +1403,7 @@ autoProcessExecute() {
 
                             afb.jindate(afb.commanderType)
                             afb.engage(afb.ownTacticsType)
-                            Sleep, sleepDuration2
+                            Sleep, 1500
                             
                             if (getWindowText(1) == "OK") {
                                 Send {Enter}
@@ -1339,10 +1421,17 @@ autoProcessExecute() {
 
                 if (isAutoSiegeWarfareEnabled) {
                     if (isCpuAuthorization) {
-                        asw.analyzeForce()
-                        asw.execute(asw.ownTacticsType)
+                        isAttacker := asw.analyzeForce()
+
+                        if (isAttacker) {
+                            asw.attack()
+                        } else {
+                            asw.defend()
+                        }
                     }
                 }
+
+                Sleep, 1500
 
                 if (getWindowText(1) == "OK") {
                     Send {Enter}
