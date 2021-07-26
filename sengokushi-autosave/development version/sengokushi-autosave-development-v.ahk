@@ -360,13 +360,17 @@ afb.enemyMatchlocks :=
 afb.ownTacticsType :=
 afb.commanderType :=
 
-afb.ownBattleArray := []
-afb.enemyBattleArray := []  ; Index 0: The first unit. Index 1: The second unit. Index 2: Headquarters.
 afb.ownUnits :=  ; Number of own units.
 afb.enemyUnits :=  ; Number of enemy units.
+afb.own1stUnitPos :=
+afb.own2ndUnitPos :=
+afb.ownHqUnitPos :=
+afb.enemy1stUnitPos :=
+afb.enemy2ndUnitPos :=
+afb.enemyHqUnitPos :=
 afb.ownUnitFrontPos :=
 afb.enemyUnitFrontPos :=  ; Default an enemy first unit position.
-afb.arrayDistance :=  ; Range 1-5.
+afb.arrayDistance :=  ; Range 1-4.
 afb.enemyTookPresumptionAction :=  ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 
 
@@ -493,7 +497,7 @@ _afbJindate(this, commanderType) {
 
         if (color2 == fontColor) {
             commanderType := 9  ; Commander is daimyou.
-            MsgBox, "type 9"
+            ;MsgBox, "Commander type 9"
         }
     }
 
@@ -609,13 +613,14 @@ _afbJindate(this, commanderType) {
         Sleep, sleepDuration1
         Click
     }
-
+/*
     Sleep, sleepDuration2
     WinGetTitle, windowTitle, %appProcess%
 
     if (windowTitle != "野戦") {
         isCpuAuthorization := false
     }
+    */
 }
 
 _afbJudgeAction(this, actionType) {
@@ -716,16 +721,10 @@ _afbInputAction(this, actionType) {
 
 _afbUpdateBattleArray(this, turn) {
     enemyColor := 0xFF7D5A
-    ownColor :=
     pickedColor :=
-    enemyFrontPos :=
-    ownFrontPos :=
     oldEnemyUnits := this.enemyUnits
     oldEnemyFrontPos := this.enemyUnitFrontPos
     oldDistance := this.arrayDistance
-    isExistUnit :=
-    checkColorXPos :=
-    checkColorYPos :=
     checkColorXPosList := []
     checkColorYPosList := []
     checkColorXPosList[2] := 334
@@ -752,26 +751,26 @@ _afbUpdateBattleArray(this, turn) {
         this.enemyTookPresumptionAction := 1  ;  Presumption action.
 
         if (pickedColor == 0xFFFFFF) {
-            this.enemyBattleArray[0] := oldEnemyFrontPos - 1
+            this.enemy1stUnitPos := oldEnemyFrontPos - 1
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                this.enemyBattleArray[1] := oldEnemyFrontPos
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemy2ndUnitPos := oldEnemyFrontPos
+                this.enemyHqUnitPos := oldEnemyFrontPos + 1
             } else {
-                this.enemyBattleArray[1] := 0
-                this.enemyBattleArray[2] := oldEnemyFrontPos
+                this.enemy2ndUnitPos := 0
+                this.enemyHqUnitPos := oldEnemyFrontPos
             }
         } else {
-            this.enemyBattleArray[0] := 0
+            this.enemy1stUnitPos := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                this.enemyBattleArray[1] := oldEnemyFrontPos
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemy2ndUnitPos := oldEnemyFrontPos
+                this.enemyHqUnitPos := oldEnemyFrontPos + 1
             } else {
-                this.enemyBattleArray[1] := 0
-                this.enemyBattleArray[2] := oldEnemyFrontPos
+                this.enemy2ndUnitPos := 0
+                this.enemyHqUnitPos := oldEnemyFrontPos
             }
         }
     } else if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos], 2)) {
@@ -780,26 +779,26 @@ _afbUpdateBattleArray(this, turn) {
         this.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            this.enemyBattleArray[0] := oldEnemyFrontPos
+            this.enemy1stUnitPos := oldEnemyFrontPos
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemy2ndUnitPos := oldEnemyFrontPos + 1
+                this.enemyHqUnitPos := oldEnemyFrontPos + 2
             } else {
-                this.enemyBattleArray[1] := 0
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemy2ndUnitPos := 0
+                this.enemyHqUnitPos := oldEnemyFrontPos + 1
             }
         } else {
-            this.enemyBattleArray[0] := 0
+            this.enemy1stUnitPos := 0
             pickedColor := getColor(743, 447)
 
             if (pickedColor == 0xFFFFFF) {
-                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemy2ndUnitPos := oldEnemyFrontPos + 1
+                this.enemyHqUnitPos := oldEnemyFrontPos + 2
             } else {
-                this.enemyBattleArray[1] := 0
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 1
+                this.enemy2ndUnitPos := 0
+                this.enemyHqUnitPos := oldEnemyFrontPos + 1
             }
         }
     } else {
@@ -808,26 +807,26 @@ _afbUpdateBattleArray(this, turn) {
         this.enemyTookPresumptionAction := 0
 
         if (pickedColor == 0xFFFFFF) {
-            this.enemyBattleArray[0] := oldEnemyFrontPos + 1
-            this.enemyBattleArray[1] := 0
-            this.enemyBattleArray[2] := oldEnemyFrontPos + 2
+            this.enemy1stUnitPos := oldEnemyFrontPos + 1
+            this.enemy2ndUnitPos := 0
+            this.enemyHqUnitPos := oldEnemyFrontPos + 2
         } else {
             pickedColor := getColor(743, 447)
-            this.enemyBattleArray[0] := 0
+            this.enemy1stUnitPos := 0
 
             if (pickedColor == 0xFFFFFF) {
-                this.enemyBattleArray[1] := oldEnemyFrontPos + 1
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemy2ndUnitPos := oldEnemyFrontPos + 1
+                this.enemyHqUnitPos := oldEnemyFrontPos + 2
             } else {
-                this.enemyBattleArray[1] := 0
-                this.enemyBattleArray[2] := oldEnemyFrontPos + 2
+                this.enemy2ndUnitPos := 0
+                this.enemyHqUnitPos := oldEnemyFrontPos + 2
             }
         }               
     }
 
 
 
-    this.ownUnitFrontPos := Max(this.ownBattleArray[0], this.ownBattleArray[1], this.ownBattleArray[2])
+    this.ownUnitFrontPos := Max(this.own1stUnitPos, this.own2ndUnitPos, this.ownHqUnitPos)
     this.arrayDistance := this.enemyUnitFrontPos - this.ownUnitFrontPos  ; Calc the distance.
 
     if (this.arrayDistance < oldDistance) {
@@ -841,12 +840,9 @@ _afbUpdateBattleArray(this, turn) {
     }
 
 
-    MsgBox, % this.ownBattleArray[0] " this.ownBattleArray[0]]`n" this.ownBattleArray[1] " [this.ownBattleArray[1]]`n" this.ownBattleArray[2] " [this.ownBattleArray[1]]`n"
-    . this.enemyBattleArray[0] " [this.enemyBattleArray[0]]`n" this.enemyBattleArray[1] " [this.enemyBattleArray[1]]`n" this.enemyBattleArray[2] " [this.enemyBattleArray[2]]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
+    MsgBox, % this.own1stUnitPos " this.own1stUnitPos]`n" this.own2ndUnitPos " [this.own2ndUnitPos]`n" this.ownHqUnitPos " [this.ownHqUnitPos]`n"
+    . this.enemy1stUnitPos " [this.enemy1stUnitPos]`n" this.enemy2ndUnitPos " [this.enemy2ndUnitPos]`n" this.enemyHqUnitPos " [this.enemyHqUnitPos]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
     . this.ownUnits " [this.ownUnits]`n" this.enemyUnits " [this.enemyUnits]`n" this.ownUnitFrontPos " [this.ownUnitFrontPos]`n" this.enemyUnitFrontPos "[this.enemyUnitFrontPos]`n" this.arrayDistance " [this.arrayDistance]`n" this.enemyTookPresumptionAction " [this.enemyTookPresumptionAction]"
-
-    ;MsgBox, % this.ownBattleArray[0] "`n" this.ownBattleArray[1] "`n" this.ownBattleArray[2] "`n" this.enemyBattleArray[0] "`n" this.enemyBattleArray[1] "`n" this.enemyBattleArray[2]
-    ;MsgBox, % this.ownUnits "[this.ownUnits]`n" this.enemyUnits "[this.enemyUnits]`n" this.ownUnitFrontPos "[this.ownUnitFrontPos]`n" this.enemyUnitFrontPos "[this.enemyUnitFrontPos]`n" this.arrayDistance "[this.arrayDistance]`n" this.enemyTookPresumptionAction "[this.enemyTookPresumptionAction]"
 }
 
 
@@ -1051,8 +1047,7 @@ _aswAnalyzeForce(this) {
             isAttacker := true
             this.enemyDaimyo := RegExReplace(infoTexts[14], "家$", "")
         } else {
-            
-            MsgBox, % playerDaimyo + "家"
+            ;MsgBox, % playerDaimyo + "家"
             this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
         }
     } else {
@@ -2466,14 +2461,23 @@ Break::
     return
 
 End::
-    isAutoFieldBattleReserved := true  ; ユーザー操作によるオート戦闘再開時の予約フラグ
+    ;isAutoFieldBattleReserved := true  ; ユーザー操作によるオート戦闘再開時の予約フラグ
     ;MsgBox, %isSubProcessRunning%
 
     ;winText := getWindowText(10)
     ;regText := RegExReplace(winText, "で.+$", "")
     ;MsgBox, % regText
 
- 
+
+    afb.ownUnits :=  ; Number of own units.
+    afb.enemyUnits :=  ; Number of enemy units.
+    afb.ownUnitFrontPos :=
+    afb.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
+    afb.arrayDistance := 4 ; Range 1-4.
+    afb.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
+
+    afb.updateBattleArray(1)
+
     return
 
 
