@@ -235,7 +235,7 @@ sleepDuration2 := 500
 sleepDuration3 := 500
 
 ; 自動戦闘有効時の、各戦闘における処理開始までの待ち時間を指定します（ミリ秒）。
-battleWaitDuration := 1000
+battleWaitDuration := 500
 
 matchlockForce := 70
 stuckRate := 1.1
@@ -250,6 +250,8 @@ isSkipNotificationEnabled := true
 
 
 isOcrEnabled := true
+
+global isDebugMode := true
 
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -299,7 +301,12 @@ matchlockCoefficient := matchlockBaseCoefficient * matchlockForce / 10 * stuckRa
 
 isMainTimerRequirement := true
 
-isCpuAuthorization := false
+isCpuAuthorization :=
+
+if (isAutoFieldBattleEnabled || isAutoSiegeWarfareEnabled || isSkipNotificationEnabled) {
+    isCpuAuthorization := true
+}
+
 playerDaimyo :=
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Script start.
@@ -435,7 +442,7 @@ _afbAnalyzeForce(this) {
     actuallyEnemyForceStrength := enemyForceStrength + enemyMatchlocksStrength
     actuallyForceRatio := actuallyOwnForceStrength / actuallyEnemyForceStrength
 
-    if (actuallyOwnForceStrength * 1.3 < actuallyEnemyForceStrength) {
+    if (actuallyOwnForceStrength * 1.5 < actuallyEnemyForceStrength) {
         if (this.enemyMatchlocks * 10 < this.ownMatchlocks) {
             this.ownTacticsType := 7  ; Retreat if enemy approaches own force.
             this.commanderType := 3
@@ -458,8 +465,12 @@ _afbAnalyzeForce(this) {
         }
     }
 
-    MsgBox, % ownForceStrength " [ownForceStrength]`n" enemyForceStrength " [enemyForceStrength]`n" forceRatio " [forceRatio]`n" actuallyOwnForceStrength
-    . " [actuallyOwnForceStrength]`n" actuallyEnemyForceStrength " [actuallyEnemyForceStrength]`n" actuallyForceRatio " [actuallyForceRatio]`n" this.ownTacticsType " [afb.ownTacticsType]`n" 
+    if (isDebugMode) {
+        MsgBox, % ownForceStrength " [ownForceStrength]`n" enemyForceStrength " [enemyForceStrength]`n" forceRatio " [forceRatio]`n" actuallyOwnForceStrength
+        . " [actuallyOwnForceStrength]`n" actuallyEnemyForceStrength " [actuallyEnemyForceStrength]`n" actuallyForceRatio " [actuallyForceRatio]`n" this.ownTacticsType " [afb.ownTacticsType]`n" 
+    }
+
+
 }
 
 
@@ -696,6 +707,7 @@ _afbInputAction(this, actionType) {
             MouseMove, %leftButtonXPos%, %moveForwardYPos%
             Sleep, sleepDuration1
             Click
+            this.ownUnitFrontPos += 1
         case 2:  ; Attack(攻撃).
             MouseMove, %rightButtonXPos%, %attackYPos%
             Sleep, sleepDuration1
@@ -743,12 +755,29 @@ _afbUpdateBattleArray(this, turn) {
     checkColorYPosList[8] := 117
 
     ;MsgBox, %oldEnemyFrontPos% [oldEnemyFrontPos]
-
+    ;MouseMove, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos]
 
     if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos - 1], checkColorYPosList[oldEnemyFrontPos - 1], 2)) {
-        pickedColor := getColor(743, 345)
+        ;MsgBox,"pos -1"
         this.enemyUnitFrontPos := oldEnemyFrontPos - 1
         this.enemyTookPresumptionAction := 1  ;  Presumption action.
+
+    } else if (isApproximateColor(enemyColor, 20, 2, checkColorXPosList[oldEnemyFrontPos], checkColorYPosList[oldEnemyFrontPos], 2)) {
+        ;MsgBox,"pos +0"
+        this.enemyUnitFrontPos := oldEnemyFrontPos
+        this.enemyTookPresumptionAction := 0
+    } else {
+        ;MsgBox,"pos +1"
+        this.enemyUnitFrontPos := oldEnemyFrontPos + 1
+        this.enemyTookPresumptionAction := 0
+    }
+
+    this.arrayDistance := this.enemyUnitFrontPos - this.ownUnitFrontPos - 1 ; Calc the distance.
+
+
+
+/*
+        pickedColor := getColor(743, 345)
 
         if (pickedColor == 0xFFFFFF) {
             this.enemy1stUnitPos := oldEnemyFrontPos - 1
@@ -838,11 +867,12 @@ _afbUpdateBattleArray(this, turn) {
             this.enemyTookPresumptionAction := 0
         }
     }
-
-
+*/
+/*
     MsgBox, % this.own1stUnitPos " this.own1stUnitPos]`n" this.own2ndUnitPos " [this.own2ndUnitPos]`n" this.ownHqUnitPos " [this.ownHqUnitPos]`n"
     . this.enemy1stUnitPos " [this.enemy1stUnitPos]`n" this.enemy2ndUnitPos " [this.enemy2ndUnitPos]`n" this.enemyHqUnitPos " [this.enemyHqUnitPos]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
     . this.ownUnits " [this.ownUnits]`n" this.enemyUnits " [this.enemyUnits]`n" this.ownUnitFrontPos " [this.ownUnitFrontPos]`n" this.enemyUnitFrontPos "[this.enemyUnitFrontPos]`n" this.arrayDistance " [this.arrayDistance]`n" this.enemyTookPresumptionAction " [this.enemyTookPresumptionAction]"
+*/
 }
 
 
@@ -860,9 +890,9 @@ _afbEngage(this, tacticsType) {
 
     this.ownUnits :=  ; Number of own units.
     this.enemyUnits :=  ; Number of enemy units.
-    this.ownUnitFrontPos :=
+    this.ownUnitFrontPos := 3
     this.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
-    this.arrayDistance :=  ; Range 1-5.
+    this.arrayDistance := 4 ; Range 0-4.
     this.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 
     ; Determines whether or not a surprise attack has occurred.
@@ -933,7 +963,11 @@ _afbEngage(this, tacticsType) {
             break
         } else {
             turn++
-            afb.updateBattleArray(turn)
+
+            if (turn != 1) {
+                afb.updateBattleArray(turn)
+            }
+
             this.inputAction(this.judgeAction(element))
             Sleep, % sleepDuration3
         }
@@ -1051,6 +1085,8 @@ _aswAnalyzeForce(this) {
             this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
         }
     } else {
+        Sleep, 500
+
         if (getColor(175, 445) != uiPartColor || getColor(178, 457) != uiPartColor) {
             isAttacker := true
             playerDaimyo := RegExReplace(infoTexts[13], "家$", "")
@@ -1129,9 +1165,10 @@ _aswAnalyzeForce(this) {
         }
     }
 
-
-    MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n" this.root " [asw.root]`n"
-    . this.ownHyoro " [asw.ownHyoro]`n" this.enemyHyoro " [asw.enemyHyoro]`n" castleFallsEstimation " [castleFallsEstimation]`n" this.ownTacticsType " [asw.ownTacticsType]`n" 
+    if (isDebugMode) {
+        MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [asw.enemyDaimyo]`n" this.ownSoldiers " [asw.ownSoldiers]`n" this.enemySoldiers " [asw.enemySoldiers]`n" this.root " [asw.root]`n"
+        . this.ownHyoro " [asw.ownHyoro]`n" this.enemyHyoro " [asw.enemyHyoro]`n" castleFallsEstimation " [castleFallsEstimation]`n" this.ownTacticsType " [asw.ownTacticsType]`n" isAttacker " [isAttacker]"
+    }
 
     return isAttacker
 }
@@ -1230,6 +1267,8 @@ skip.isServedAndDiedEnabled := true
 skip.isEarningsCallEnabled := true
 skip.isProcureMatchlocksEnabled := true
 skip.isReturnToPortEnabled := true
+skip.isCloseButtonWindowEnabled := true
+skip.exclusionList := ["台風", "大雨", "大雪", "地震"]
 skip.execute := Func("_skipExecute")
 
 _skipExecute(this) {
@@ -1246,11 +1285,15 @@ _skipExecute(this) {
         switch (windowTitle) {
             case "合戦結果":
                 if (skip.isBattleResultEnabled) {
-                    Send {Enter}
+                    MouseMove, 478, 18
+                    Sleep, sleepDuration1
+                    Click
                 }
             case "収支報告":
                 if (skip.isEarningsCallEnabled) {
-                    Send {Enter}
+                    MouseMove, 578, 18
+                    Sleep, sleepDuration1
+                    Click
                 }
             case "":
                 ;MsgBox, "call normal skip"
@@ -1279,19 +1322,28 @@ _skipExecute(this) {
                     Sleep, sleepDuration1
                     Click
                 } else {
-                    ControlGetText, controlText, Button1, %appProcess%
+                    if (skip.isCloseButtonWindowEnabled) {
+                        for i, element in skip.exclusionList {
+                            if (element == windowTitle) {
+                                isMatch := true
+                                break
+                            }
+                        }
 
-                    if (controlText == "閉じる") {
-                        Send {Tab}
-                        Sleep, sleepDuration1
-                        Send {Enter}
+                        if (!isMatch) {
+                            ControlGetText, controlText, Button1, %appProcess%
+
+                            if (controlText == "閉じる") {
+                                Send {Tab}
+                                Sleep, sleepDuration1
+                                Send {Enter}
+                            }
+                        }
                     }
                 }
-
-
         }
 
-        Sleep, sleepDuration2
+        Sleep, sleepDuration2  ; Wait for next window.
     }
 
     isSubProcessRunning := false
@@ -1373,7 +1425,6 @@ autoProcessExecute() {
 
 
     isSubProcessRunning := true
-    isCpuAuthorization := true
     isAutoFieldBattleReserved := false
 
     WinGetTitle, windowTitle, %appProcess%
@@ -1384,13 +1435,15 @@ autoProcessExecute() {
     While (isSubProcessRunning) {
         switch (windowTitle) {
             case "野戦発生":
+                ;MsgBox, "野戦発生"
+
                 if (isAutoFieldBattleEnabled) {
                     if (isCpuAuthorization) {
                     
                         afb.analyzeForce()
                         afb.jindate(afb.commanderType)
                         afb.engage(afb.ownTacticsType)
-                        Sleep, 1500
+                        Sleep, 1000
                         
                         if (getWindowText(1) == "OK") {
                             Send {Enter}
@@ -1406,7 +1459,7 @@ autoProcessExecute() {
 
                             afb.jindate(afb.commanderType)
                             afb.engage(afb.ownTacticsType)
-                            Sleep, 1500
+                            Sleep, 1000
                             
                             if (getWindowText(1) == "OK") {
                                 Send {Enter}
@@ -1415,30 +1468,44 @@ autoProcessExecute() {
                     }
                 }
             case "城攻略戦":
+                ;MsgBox, "城攻略戦"
+                Sleep, 1000
+                WinGetTitle, windowTitle, %appProcess%
+
+                if (windowTitle != "城攻略戦") {
+                    Send {Enter}
+                    Sleep, 1500
+                } else {
+                    if (isAutoSiegeWarfareEnabled) {
+                        if (isCpuAuthorization) {
+                            isAttacker := asw.analyzeForce()
+
+                            if (isAttacker) {
+                                asw.attack()
+                            } else {
+                                asw.defend()
+                            }
+                        }
+
+                        Sleep, 1000
+
+                        if (getWindowText(1) == "OK") {
+                            Send {Enter}
+                        }
+                    }
+                }
+
                 /*
                 if (isAutoFieldBattleReserved) {
                     isAutoFieldBattleReserved := false
                     isAutoFieldBattleEnabled := true
                 }
                 */
+                ;MsgBox, "城攻略戦"
 
-                if (isAutoSiegeWarfareEnabled) {
-                    if (isCpuAuthorization) {
-                        isAttacker := asw.analyzeForce()
 
-                        if (isAttacker) {
-                            asw.attack()
-                        } else {
-                            asw.defend()
-                        }
-                    }
-                }
 
-                Sleep, 1500
 
-                if (getWindowText(1) == "OK") {
-                    Send {Enter}
-                }
             case "合戦結果":
                 isSubProcessRunning := false
             default:
@@ -2471,9 +2538,9 @@ End::
 
     afb.ownUnits :=  ; Number of own units.
     afb.enemyUnits :=  ; Number of enemy units.
-    afb.ownUnitFrontPos :=
+    afb.ownUnitFrontPos := 3
     afb.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
-    afb.arrayDistance := 4 ; Range 1-4.
+    afb.arrayDistance := 4 ; Range 0-4.
     afb.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
 
     afb.updateBattleArray(1)
