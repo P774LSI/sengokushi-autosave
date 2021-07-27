@@ -235,7 +235,7 @@ sleepDuration2 := 500
 sleepDuration3 := 500
 
 ; 自動戦闘有効時の、各戦闘における処理開始までの待ち時間を指定します（ミリ秒）。
-battleWaitDuration := 500
+battleWaitDuration := 1000
 
 matchlockForce := 70
 stuckRate := 1.1
@@ -251,8 +251,7 @@ isSkipNotificationEnabled := true
 
 isOcrEnabled := true
 
-global isDebugMode := true
-
+global isDebugMode := false
 ; ここまでユーザー設定項目。
 ;---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ; Variables.
@@ -399,6 +398,9 @@ afb.inputAction := Func("_afbInputAction")
 afb.updateBattleArray := Func("_afbUpdateBattleArray")
 
 _afbAnalyzeForce(this) {
+    global appProcess
+    global isCpuAuthorization
+    global isSubProcessRunning
     global matchlockForce
     global cavalryCoefficient
     global infantryCoefficient
@@ -408,14 +410,29 @@ _afbAnalyzeForce(this) {
     ownForceStrength :=
     enemyForceStrength :=
     forceRatio :=
-    
     matchlocksRatio :=
     ownMatchlocksStrength :=
     enemyMatchlocksStrength :=
-
     actuallyOwnForceStrength :=
     actuallyEnemyForceStrength :=
     actuallyForceRatio :=
+    waitCounter := 0
+
+/*
+    WinGetTitle, windowTitle, %appProcess%
+
+    While (windowTitle != "野戦発生") {
+        waitCounter++
+        Sleep, 500
+        WinGetTitle, windowTitle, %appProcess%
+
+        if (waitCounter > 20) {
+            isCpuAuthorization := false
+            isSubProcessRunning := false
+            MsgBox, "afb.analyzeForce() / Exception handling. / Window title not field battle occurred (野戦発生)."
+        }
+    }
+    */
 
     WinGetText, strings, %appProcess%
     infoTexts := StrSplit(strings, "`r`n")
@@ -428,14 +445,10 @@ _afbAnalyzeForce(this) {
     this.enemySoldiers := RegExReplace(infoTexts[16], "[^0-9]+", "")
     this.ownMatchlocks := RegExReplace(infoTexts[17], "[^0-9]+", "")
     this.enemyMatchlocks := RegExReplace(infoTexts[18], "[^0-9]+", "")
-
-    ;MsgBox, % playerDaimyo "`n" this.enemyDaimyo "`n" this.ownCavalry "`n" this.enemyCavalry "`n" this.ownSoldiers "`n" this.enemySoldiers "`n" this.ownMatchlocks "`n" this.enemyMatchlocks "`n"
-
     ownForceStrength := this.ownCavalry * cavalryCoefficient + this.ownSoldiers * infantryCoefficient
     enemyForceStrength := this.enemyCavalry * cavalryCoefficient + this.enemySoldiers * infantryCoefficient
     forceRatio := ownForceStrength / enemyForceStrength
     matchlocksRatio := this.ownMatchlocks / this.enemyMatchlocks
-
     ownMatchlocksStrength := matchlockCoefficient * this.ownMatchlocks
     enemyMatchlocksStrength := matchlockCoefficient * this.enemyMatchlocks
     actuallyOwnForceStrength := ownForceStrength + ownMatchlocksStrength
@@ -466,17 +479,13 @@ _afbAnalyzeForce(this) {
     }
 
     if (isDebugMode) {
-        MsgBox, % ownForceStrength " [ownForceStrength]`n" enemyForceStrength " [enemyForceStrength]`n" forceRatio " [forceRatio]`n" actuallyOwnForceStrength
+        MsgBox, % playerDaimyo " [playerDaimyo]`n" this.enemyDaimyo " [afb.enemyDaimyo]`n" ownForceStrength " [ownForceStrength]`n" enemyForceStrength " [enemyForceStrength]`n" forceRatio " [forceRatio]`n" actuallyOwnForceStrength
         . " [actuallyOwnForceStrength]`n" actuallyEnemyForceStrength " [actuallyEnemyForceStrength]`n" actuallyForceRatio " [actuallyForceRatio]`n" this.ownTacticsType " [afb.ownTacticsType]`n" 
     }
-
-
 }
 
 
 _afbJindate(this, commanderType) {
-    global isAutoFieldBattleEnabled
-    global isSubProcessRunning
     global isCpuAuthorization
     global sleepDuration1
     global sleepDuration2
@@ -491,14 +500,12 @@ _afbJindate(this, commanderType) {
     counter := 0
     currentYPos :=
 
-    WinGetTitle, windowTitle, %appProcess%
+    Sleep, battleWaitDuration
 
-    if (windowTitle != "野戦発生") {  ; Exception handling.
-        isSubProcessRunning := false
+    if (!isCpuAuthorization) {
         return
     }
 
-    Sleep, battleWaitDuration
     color1 := getColor(100, this.generalListTop + this.generalListRowHeight)
     
     if (color1 != lineColor) {
@@ -511,8 +518,6 @@ _afbJindate(this, commanderType) {
             ;MsgBox, "Commander type 9"
         }
     }
-
-    
 
     switch commanderType {
         case 1:  ; The commander having a highest leadership ability with the field battle.
@@ -624,14 +629,6 @@ _afbJindate(this, commanderType) {
         Sleep, sleepDuration1
         Click
     }
-/*
-    Sleep, sleepDuration2
-    WinGetTitle, windowTitle, %appProcess%
-
-    if (windowTitle != "野戦") {
-        isCpuAuthorization := false
-    }
-    */
 }
 
 _afbJudgeAction(this, actionType) {
@@ -877,8 +874,8 @@ _afbUpdateBattleArray(this, turn) {
 
 
 _afbEngage(this, tacticsType) {
-    global afb
-    global isAutoFieldBattleEnabled
+    global isCpuAuthorization
+    global isSubProcessRunning
     global battleWaitDuration
     global sleepDuration1
     global sleepDuration2
@@ -887,6 +884,7 @@ _afbEngage(this, tacticsType) {
     global fontColor
     turn := 0
     actionList :=
+    waitCounter := 0
 
     this.ownUnits :=  ; Number of own units.
     this.enemyUnits :=  ; Number of enemy units.
@@ -894,6 +892,25 @@ _afbEngage(this, tacticsType) {
     this.enemyUnitFrontPos := 8 ; Default an enemy first unit position.
     this.arrayDistance := 4 ; Range 0-4.
     this.enemyTookPresumptionAction := 0 ; Enemy took a presumption action. 0 is wait, 1 is move forward, 2 is fire.
+
+    if (!isCpuAuthorization) {
+        return
+    }
+
+    WinGetTitle, windowTitle, %appProcess%
+
+/*
+    While (windowTitle != "野戦") {
+        waitCounter++
+        Sleep, 500
+        WinGetTitle, windowTitle, %appProcess%
+
+        if (waitCounter > 20) {
+            isSubProcessRunning := false
+            MsgBox, "this.engage() / Exception handling. / Window title not field battle(野戦)"
+        }
+    }
+    */
 
     ; Determines whether or not a surprise attack has occurred.
     if (getWindowText(1) == "OK") {
@@ -905,13 +922,6 @@ _afbEngage(this, tacticsType) {
         } else {
             tacticsType := 9
         }
-    }
-
-    WinGetTitle, windowTitle, %appProcess%
-
-    if (windowTitle != "野戦") {  ; Exception handling.
-        isSubProcessRunning := false
-        return
     }
 
     ; 1: Move forward, 2: Attack, 3: Fire, 4: Change a battle array, 5: Wait, 6: Restreat
@@ -945,7 +955,7 @@ _afbEngage(this, tacticsType) {
 
     Sleep, battleWaitDuration
 
-    if (!isAutoFieldBattleEnabled) {
+    if (!isCpuAuthorization) {
         return
     }
 
@@ -965,7 +975,7 @@ _afbEngage(this, tacticsType) {
             turn++
 
             if (turn != 1) {
-                afb.updateBattleArray(turn)
+                this.updateBattleArray(turn)
             }
 
             this.inputAction(this.judgeAction(element))
@@ -991,7 +1001,7 @@ _afbEngage(this, tacticsType) {
                     break
                 } else {
                     turn++
-                    afb.updateBattleArray(turn)    
+                    this.updateBattleArray(turn)    
                     this.inputAction(this.judgeAction(element))
                     Sleep, % sleepDuration3
                 }
@@ -1039,7 +1049,6 @@ _afbEngage(this, tacticsType) {
     MouseMove, 126, 170
     Sleep, sleepDuration1
     Click
-    ;isSubProcessRunning := false
 }
 
 ; Auto siege warfare (ASW).
@@ -1053,14 +1062,12 @@ asw.ownTacticsType :=
 asw.ownHyoro :=
 asw.enemyHyoro :=
 
-asw.fireExecuteDuration := 2000
 asw.analyzeForce := Func("_aswAnalyzeForce")
 asw.attack := Func("_aswAttack")
 asw.defend := Func("_aswDefend")
 asw.execute := Func("_aswExecute")
 
 _aswAnalyzeForce(this) {
-    global afb
     global playerDaimyo
     global isOcrEnabled
     global fontColor
@@ -1085,8 +1092,6 @@ _aswAnalyzeForce(this) {
             this.enemyDaimyo := RegExReplace(infoTexts[13], "家$", "")
         }
     } else {
-        Sleep, 500
-
         if (getColor(175, 445) != uiPartColor || getColor(178, 457) != uiPartColor) {
             isAttacker := true
             playerDaimyo := RegExReplace(infoTexts[13], "家$", "")
@@ -1152,6 +1157,7 @@ _aswAnalyzeForce(this) {
             }
         } else {
             isCpuAuthorization := false
+            MsgBox, "asw.analyzeForce  / Can't calc castleFallsEstimation. / isCpuAuthorization := false"
         }
     } else {
         if (castleFallsEstimation) {
@@ -1162,6 +1168,7 @@ _aswAnalyzeForce(this) {
             }
         } else {
             isCpuAuthorization := false
+            MsgBox, "asw.analyzeForce  / Can't calc castleFallsEstimation. / isCpuAuthorization := false"
         }
     }
 
@@ -1174,7 +1181,6 @@ _aswAnalyzeForce(this) {
 }
 
 _aswAttack(this) {  ; tacticsType 0: wait, 1: storm
-    global isSubProcessRunning
     global sleepDuration1
     global sleepDuration3
     global fontColor
@@ -1182,7 +1188,7 @@ _aswAttack(this) {  ; tacticsType 0: wait, 1: storm
 
     ;MsgBox, "[asw.attack() call]"
 
-    Sleep, this.fireExecuteDuration
+    Sleep, sleepDuration3
 
     Loop 5 {
         turn++
@@ -1209,7 +1215,6 @@ _aswAttack(this) {  ; tacticsType 0: wait, 1: storm
 }
 
 _aswDefend(this) {
-    global isSubProcessRunning
     global sleepDuration1
     global sleepDuration3
     global fontColor
@@ -1217,7 +1222,7 @@ _aswDefend(this) {
 
     ;MsgBox, "[asw.defend() call]"
 
-    Sleep, this.fireExecuteDuration
+    Sleep, sleepDuration3
 
     Loop 5 {
         turn++
@@ -1244,20 +1249,6 @@ _aswDefend(this) {
     Click
 }
 
-/*
-_aswExecute(this, tacticsType) {
-    global isSubProcessRunning
-    buttonShadowColor := 0x606060
-    isSubProcessRunning := true
-
-    if (getColor(224, 444) == buttonShadowColor) { ;  Player is the attacker.
-        this.attack(tacticsType)
-    } else { ;  Player is the defender.
-        this.defend(tacticsType)
-    }
-}
-*/
-
 ; Skip process with notification window.
 skip := {}
 skip.isEventEnabled := true
@@ -1272,58 +1263,59 @@ skip.exclusionList := ["台風", "大雨", "大雪", "地震"]
 skip.execute := Func("_skipExecute")
 
 _skipExecute(this) {
-    global skip
     global isSubProcessRunning
     global appProcess
     global sleepDuration1
     global sleepDuration2
     isSubProcessRunning := true
 
-    while (WinActive(appProcess) && detectPhase() == 0 && isSubProcessRunning) {
+    ;while (WinActive(appProcess) && detectPhase() == 0 && isSubProcessRunning) {
+    while (WinActive(appProcess) && isSubProcessRunning) {
         WinGetTitle, windowTitle, %appProcess%
 
         switch (windowTitle) {
             case "合戦結果":
-                if (skip.isBattleResultEnabled) {
-                    MouseMove, 478, 18
+                if (this.isBattleResultEnabled) {
+                    MouseMove, 663, 18
                     Sleep, sleepDuration1
                     Click
                 }
             case "収支報告":
-                if (skip.isEarningsCallEnabled) {
+                if (this.isEarningsCallEnabled) {
                     MouseMove, 578, 18
                     Sleep, sleepDuration1
                     Click
                 }
             case "":
                 ;MsgBox, "call normal skip"
-                if (skip.isEventEnabled && getWindowText(3) == "変数一覧") {
+                if (this.isEventEnabled && getWindowText(3) == "変数一覧") {
                     ;MsgBox, "call skip event"
                     MouseMove, 497, 18
                     Sleep, sleepDuration1
                     Click
-                } else if (skip.isOkEnabled && getWindowText(1) == "OK") {
+                } else if (this.isOkEnabled && getWindowText(1) == "OK") {
                     ;MsgBox, "call skip ok"
                     Send {Enter}
                 }
             default:
-                if (skip.isProcureMatchlocksEnabled && SubStr(windowTitle, -1) == "入手") {
+                ;MsgBox, "other window"
+                if (this.isProcureMatchlocksEnabled && SubStr(windowTitle, -1) == "入手") {
                     ;MsgBox, "call skip get teppou"
                     MouseMove, 366, 27
                     Sleep, sleepDuration1
                     Click
-                } else if (skip.isReturnToPortEnabled && SubStr(windowTitle, -1) == "帰港") {
+                } else if (this.isReturnToPortEnabled && SubStr(windowTitle, -1) == "帰港") {
                     ;MsgBox, "call skip return to port"
                     MouseMove, 477, 21
                     Sleep, sleepDuration1
                     Click
-                } else if (skip.isServedAndDiedEnabled && SubStr(windowTitle, -4) == "死去／登場") {
+                } else if (this.isServedAndDiedEnabled && SubStr(windowTitle, -4) == "死去／登場") {
                     MouseMove, 416, 18
                     Sleep, sleepDuration1
                     Click
                 } else {
-                    if (skip.isCloseButtonWindowEnabled) {
-                        for i, element in skip.exclusionList {
+                    if (this.isCloseButtonWindowEnabled) {
+                        for i, element in this.exclusionList {
                             if (element == windowTitle) {
                                 isMatch := true
                                 break
@@ -1433,13 +1425,15 @@ autoProcessExecute() {
     ; afb.castle :=
 
     While (isSubProcessRunning) {
+        WinGetTitle, windowTitle, %appProcess%
+
         switch (windowTitle) {
             case "野戦発生":
                 ;MsgBox, "野戦発生"
 
                 if (isAutoFieldBattleEnabled) {
                     if (isCpuAuthorization) {
-                    
+                        Sleep, 500
                         afb.analyzeForce()
                         afb.jindate(afb.commanderType)
                         afb.engage(afb.ownTacticsType)
@@ -1447,7 +1441,10 @@ autoProcessExecute() {
                         
                         if (getWindowText(1) == "OK") {
                             Send {Enter}
+                            Sleep, 3000
                         }
+                        
+                        
                     } else if (isAutoFieldBattleReserved) {
                         oldEnemyDaimyo := afb.enemyDaimyo
                         oldCastle := afb.castle
@@ -1469,12 +1466,13 @@ autoProcessExecute() {
                 }
             case "城攻略戦":
                 ;MsgBox, "城攻略戦"
-                Sleep, 1000
+                ;Sleep, 1000
                 WinGetTitle, windowTitle, %appProcess%
 
                 if (windowTitle != "城攻略戦") {
+                    ;MsgBox, "野戦出撃"
                     Send {Enter}
-                    Sleep, 1500
+                    ;Sleep, 1500
                 } else {
                     if (isAutoSiegeWarfareEnabled) {
                         if (isCpuAuthorization) {
@@ -1491,6 +1489,7 @@ autoProcessExecute() {
 
                         if (getWindowText(1) == "OK") {
                             Send {Enter}
+                            Sleep, 3000
                         }
                     }
                 }
@@ -1830,7 +1829,7 @@ detectPhase() {
             break
         }
     }
-
+    ;MsgBox, % phase
     return phase
 }
 
@@ -2524,7 +2523,9 @@ Break::
 
     ;skip.execute()
 
-    asw.analyzeForce()
+    ;asw.analyzeForce()
+
+    MsgBox, % isSubProcessRunning " [isSubProcessRunning]`n"
     return
 
 End::
